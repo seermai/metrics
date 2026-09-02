@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seermai Metrics Dashboard & Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3b82f6;
+      --accent2: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 {
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    /* Navigation */
+    .nav-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      padding: 0.6rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .nav-tabs button {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 0.55rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .nav-tabs button:hover { color: var(--text); background: var(--surface2); }
+    .nav-tabs button.active {
+      background: var(--accent);
+      color: white;
+    }
+    /* Sections */
+    .section {
+      display: none;
+      animation: fadeIn 0.25s ease;
+    }
+    .section.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .section-header {
+      margin-bottom: 1.25rem;
+    }
+    .section-header h2 {
+      font-size: 1.35rem;
+      margin-bottom: 0.3rem;
+    }
+    .section-header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    /* Cards & Grids */
+    .grid {
+      display: grid;
+      gap: 1.1rem;
+    }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem;
+      box-shadow: var(--shadow);
+    }
+    .card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.9rem;
+      color: var(--accent2);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .card h3 .icon { font-size: 1.1rem; }
+    /* Forms */
+    .form-group {
+      margin-bottom: 0.85rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: border-color 0.15s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    /* Results / KPIs */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .kpi {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 0.75rem;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .kpi .value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--accent2);
+      line-height: 1.2;
+    }
+    .kpi .value.warning { color: var(--warning); }
+    .kpi .value.danger { color: var(--danger); }
+    .kpi .label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+    /* Charts */
+    .chart-container {
+      position: relative;
+      height: 260px;
+      margin-top: 0.75rem;
+    }
+    .chart-container.tall { height: 320px; }
+    /* Buttons */
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.55rem 1.1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+    }
+    .btn:hover { background: #2563eb; }
+    .btn-secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: var(--border); }
+    header .btn { white-space: nowrap; }
+    header label.btn { margin: 0; }
+    .btn-row {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    /* Sub-section */
+    .subsection {
+      margin-bottom: 1.5rem;
+    }
+    .subsection h4 {
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 0.7rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border);
+    }
+    /* Summary bar */
+    .summary-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.8rem;
+      margin-bottom: 1.5rem;
+    }
+    .summary-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.9rem 1rem;
+      text-align: center;
+    }
+    .summary-item .val {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .summary-item .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    /* Help text */
+    .help {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+    /* Responsive */
+    @media (max-width: 640px) {
+      .form-row { grid-template-columns: 1fr; }
+      header { padding: 1rem; }
+      .container { padding: 1rem; }
+    }
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .badge.good { background: rgba(16,185,129,0.2); color: #34d399; }
+    .badge.warn { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .badge.bad { background: rgba(239,68,68,0.2); color: #f87171; }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;">
+      <div>
+        <h1>Seermai Metrics Dashboard</h1>
+        <p>Interactive calculators, inputs &amp; charts for sales, profitability, inventory, marketing, production and more · All values in Indian Rupees (₹)</p>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.6rem;">
+        <label for="excelImport" class="btn" style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;margin:0;">
+          📥 Import Excel
+          <input type="file" id="excelImport" accept=".xlsx,.xls,.xlsm" style="display:none;" />
+        </label>
+        <button type="button" class="btn btn-secondary" id="btnRecalcAll" title="Recalculate all sections">↻ Recalculate All</button>
+        <span id="importStatus" style="font-size:0.8rem;color:var(--muted);max-width:220px;"></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Global Summary -->
+    <div class="summary-bar" id="globalSummary">
+      <div class="summary-item">
+        <div class="val" id="sumNetRevenue">—</div>
+        <div class="lbl">Net Revenue</div>
+      </div>
+      <div class="summary-item">
+        <div class="val" id="sumGrossMargin">—</div>
+        <div class="lbl">Gross Margin</div>
+      </div>
+      <div class="summary-item">
+        <div class="val" id="sumContribution">—</div>
+        <div class="lbl">Contribution Margin</div>
+      </div>
+      <div class="summary-item">
+        <div class="val" id="sumReturnRate">—</div>
+        <div class="lbl">Return Rate</div>
+      </div>
+      <div class="summary-item">
+        <div class="val" id="sumInventoryTurns">—</div>
+        <div class="lbl">Inventory Turns</div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-tabs" id="navTabs">
+      <button class="active" data-section="sales">1. Sales &amp; Revenue</button>
+      <button data-section="profit">2. Profitability</button>
+      <button data-section="inventory">3. Returns &amp; Inventory</button>
+      <button data-section="costs">4. Costs &amp; Production</button>
+      <button data-section="marketing">5. Marketing &amp; Engagement</button>
+      <button data-section="author">6. Author &amp; Rights</button>
+      <button data-section="channels">7. Channels &amp; Geography</button>
+      <button data-section="ops">8. Operational</button>
+      <button data-section="report">Full Report</button>
+      <button data-section="glossary">Glossary &amp; Explanations</button>
+    </div>
+
+    <!-- ==================== 1. SALES & REVENUE ==================== -->
+    <div class="section active" id="sales">
+      <div class="section-header">
+        <h2>1. Sales &amp; Revenue Metrics</h2>
+        <p>Units, net revenue, format &amp; channel mix, velocity and frontlist/backlist performance.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">📊</span> Core Sales Inputs</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Gross Units Shipped</label>
+              <input type="number" id="grossUnits" value="12500" min="0" step="1">
+            </div>
+            <div class="form-group">
+              <label>Units Returned</label>
+              <input type="number" id="returnedUnits" value="1800" min="0" step="1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Gross Billings (₹)</label>
+              <input type="number" id="grossBillings" value="285000" min="0" step="100">
+            </div>
+            <div class="form-group">
+              <label>Discounts &amp; Allowances (₹)</label>
+              <input type="number" id="discounts" value="42000" min="0" step="100">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Returns Value (₹)</label>
+              <input type="number" id="returnsValue" value="38000" min="0" step="100">
+            </div>
+            <div class="form-group">
+              <label>List / Retail Price (avg ₹)</label>
+              <input type="number" id="listPrice" value="24.99" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="calcSales()">Calculate Sales</button>
+          </div>
+          <div class="kpi-grid" id="salesKpis">
+            <div class="kpi"><div class="value" id="netUnits">—</div><div class="label">Net Units</div></div>
+            <div class="kpi"><div class="value" id="netRevenue">—</div><div class="label">Net Revenue (₹)</div></div>
+            <div class="kpi"><div class="value" id="avgSellingPrice">—</div><div class="label">Avg Selling Price</div></div>
+            <div class="kpi"><div class="value" id="returnRateUnits">—</div><div class="label">Return Rate (Units)</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">📈</span> Format Mix</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Hardcover Units</label>
+              <input type="number" id="hcUnits" value="2200" min="0">
+            </div>
+            <div class="form-group">
+              <label>Paperback Units</label>
+              <input type="number" id="pbUnits" value="6800" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>eBook Units</label>
+              <input type="number" id="ebUnits" value="2100" min="0">
+            </div>
+            <div class="form-group">
+              <label>Audiobook Units</label>
+              <input type="number" id="abUnits" value="600" min="0">
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="formatChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:1.1rem;">
+        <div class="card">
+          <h3><span class="icon">🏪</span> Channel Revenue (₹)</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Online Retail (Amazon etc.)</label>
+              <input type="number" id="chOnline" value="98000" min="0">
+            </div>
+            <div class="form-group">
+              <label>Wholesale / Bookstores</label>
+              <input type="number" id="chWholesale" value="62000" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Direct-to-Consumer</label>
+              <input type="number" id="chDirect" value="18500" min="0">
+            </div>
+            <div class="form-group">
+              <label>Libraries / Institutional</label>
+              <input type="number" id="chLibrary" value="12000" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Special Sales / Other</label>
+              <input type="number" id="chSpecial" value="8500" min="0">
+            </div>
+            <div class="form-group">
+              <label>Export / International</label>
+              <input type="number" id="chExport" value="6000" min="0">
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="channelChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">📅</span> Frontlist vs Backlist &amp; Velocity</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Frontlist Revenue (₹)</label>
+              <input type="number" id="frontlistRev" value="125000" min="0">
+            </div>
+            <div class="form-group">
+              <label>Backlist Revenue (₹)</label>
+              <input type="number" id="backlistRev" value="80000" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Weeks on Sale (title)</label>
+              <input type="number" id="weeksOnSale" value="12" min="1">
+            </div>
+            <div class="form-group">
+              <label>Net Units (this title)</label>
+              <input type="number" id="titleNetUnits" value="3200" min="0">
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="frontBackRatio">—</div><div class="label">Frontlist %</div></div>
+            <div class="kpi"><div class="value" id="salesVelocity">—</div><div class="label">Units / Week</div></div>
+          </div>
+          <div class="chart-container" style="height:200px;">
+            <canvas id="frontBackChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 2. PROFITABILITY ==================== -->
+    <div class="section" id="profit">
+      <div class="section-header">
+        <h2>2. Profitability &amp; Financial Metrics</h2>
+        <p>Gross margin, contribution margin, royalties, marketing spend and cash indicators.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">💰</span> Margin Calculator</h3>
+          <div class="form-group">
+            <label>Net Sales Revenue (₹)</label>
+            <input type="number" id="pNetSales" value="205000" min="0">
+          </div>
+          <div class="form-group">
+            <label>Cost of Goods Sold – COGS (₹)</label>
+            <input type="number" id="pCogs" value="78000" min="0">
+            <div class="help">Printing + paper + binding + inbound freight + royalties (if in COGS)</div>
+          </div>
+          <div class="form-group">
+            <label>Direct Costs (₹)</label>
+            <input type="number" id="pDirectCosts" value="32000" min="0">
+            <div class="help">Marketing + fulfillment + sales commissions + platform fees</div>
+          </div>
+          <div class="form-group">
+            <label>Author Royalties Paid (₹)</label>
+            <input type="number" id="pRoyalties" value="28500" min="0">
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="calcProfit()">Calculate Margins</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="grossMarginPct">—</div><div class="label">Gross Margin %</div></div>
+            <div class="kpi"><div class="value" id="contribMarginPct">—</div><div class="label">Contribution Margin %</div></div>
+            <div class="kpi"><div class="value" id="royaltyPct">—</div><div class="label">Royalty % of Rev</div></div>
+            <div class="kpi"><div class="value" id="grossProfitVal">—</div><div class="label">Gross Profit (₹)</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">📉</span> Expense &amp; Cash Ratios</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Marketing Spend (₹)</label>
+              <input type="number" id="pMktSpend" value="18500" min="0">
+            </div>
+            <div class="form-group">
+              <label>Total Operating Expenses (₹)</label>
+              <input type="number" id="pOpex" value="95000" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Accounts Receivable (₹)</label>
+              <input type="number" id="pAR" value="48000" min="0">
+            </div>
+            <div class="form-group">
+              <label>Daily Sales (avg ₹)</label>
+              <input type="number" id="pDailySales" value="1700" min="0">
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="mktPct">—</div><div class="label">Marketing % of Rev</div></div>
+            <div class="kpi"><div class="value" id="opexPct">—</div><div class="label">OPEX %</div></div>
+            <div class="kpi"><div class="value" id="dso">—</div><div class="label">Days Sales Outstanding</div></div>
+          </div>
+          <div class="chart-container">
+            <canvas id="marginChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 3. RETURNS & INVENTORY ==================== -->
+    <div class="section" id="inventory">
+      <div class="section-header">
+        <h2>3. Returns, Inventory &amp; Supply Chain</h2>
+        <p>Return rates, inventory turns, weeks of supply and sell-through analysis.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">📦</span> Inventory &amp; Returns Calculator</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Beginning Inventory (units)</label>
+              <input type="number" id="invBegin" value="8500" min="0">
+            </div>
+            <div class="form-group">
+              <label>Ending Inventory (units)</label>
+              <input type="number" id="invEnd" value="6200" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Units Sold (period)</label>
+              <input type="number" id="invSold" value="10700" min="0">
+            </div>
+            <div class="form-group">
+              <label>COGS for Period (₹)</label>
+              <input type="number" id="invCogs" value="78000" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Avg Inventory Value (₹)</label>
+              <input type="number" id="invAvgValue" value="52000" min="0">
+            </div>
+            <div class="form-group">
+              <label>Units Returned (period)</label>
+              <input type="number" id="invReturns" value="1800" min="0">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="calcInventory()">Calculate Inventory KPIs</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="invTurns">—</div><div class="label">Inventory Turns</div></div>
+            <div class="kpi"><div class="value" id="weeksSupply">—</div><div class="label">Weeks of Supply</div></div>
+            <div class="kpi"><div class="value" id="returnRateInv">—</div><div class="label">Return Rate %</div></div>
+            <div class="kpi"><div class="value" id="avgInventory">—</div><div class="label">Avg Inventory (units)</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">🔄</span> Sell-Through &amp; Health</h3>
+          <div class="form-group">
+            <label>Units Shipped to Retail</label>
+            <input type="number" id="shippedRetail" value="12500" min="0">
+          </div>
+          <div class="form-group">
+            <label>Units Sold to End Customers</label>
+            <input type="number" id="soldEnd" value="10700" min="0">
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="sellThrough">—</div><div class="label">Sell-Through %</div></div>
+          </div>
+          <p class="help" style="margin-top:0.8rem;">Healthy inventory turns for trade books are typically 3–5+ per year. High return rates (&gt;25–30%) and low sell-through signal overprinting or weak demand.</p>
+          <div class="chart-container">
+            <canvas id="invChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 4. COSTS & PRODUCTION ==================== -->
+    <div class="section" id="costs">
+      <div class="section-header">
+        <h2>4. Costs &amp; Production Metrics</h2>
+        <p>Unit economics, COGS breakdown, development costs and print-run efficiency.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">🖨️</span> Unit Economics Calculator</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Print Run Size (units)</label>
+              <input type="number" id="printRun" value="5000" min="1">
+            </div>
+            <div class="form-group">
+              <label>Total Printing Cost (₹)</label>
+              <input type="number" id="printCost" value="18500" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Paper &amp; Materials (₹)</label>
+              <input type="number" id="paperCost" value="4200" min="0">
+            </div>
+            <div class="form-group">
+              <label>Inbound Freight (₹)</label>
+              <input type="number" id="freightCost" value="1800" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Royalty per Unit (₹)</label>
+              <input type="number" id="royaltyPerUnit" value="2.80" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label>Other Variable / Unit (₹)</label>
+              <input type="number" id="otherVar" value="0.45" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Pre-pub / Development Cost (total ₹)</label>
+            <input type="number" id="devCost" value="8500" min="0">
+            <div class="help">Editing, design, typesetting, cover, etc.</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="calcCosts()">Calculate Unit Costs</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="cogsPerUnit">—</div><div class="label">COGS / Unit</div></div>
+            <div class="kpi"><div class="value" id="totalUnitCost">—</div><div class="label">Fully Loaded / Unit</div></div>
+            <div class="kpi"><div class="value" id="devPerUnit">—</div><div class="label">Dev Cost / Unit</div></div>
+            <div class="kpi"><div class="value" id="breakevenUnits">—</div><div class="label">Breakeven Units*</div></div>
+          </div>
+          <p class="help">*Simple breakeven assumes fixed development cost recovered at contribution after variable costs. Adjust selling price for accuracy.</p>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">⚙️</span> Production Efficiency</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Planned Production Days</label>
+              <input type="number" id="plannedDays" value="90" min="1">
+            </div>
+            <div class="form-group">
+              <label>Actual Production Days</label>
+              <input type="number" id="actualDays" value="105" min="1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Titles Completed (period)</label>
+              <input type="number" id="titlesDone" value="14" min="0">
+            </div>
+            <div class="form-group">
+              <label>Titles Planned</label>
+              <input type="number" id="titlesPlanned" value="16" min="1">
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="scheduleVariance">—</div><div class="label">Schedule Variance %</div></div>
+            <div class="kpi"><div class="value" id="completionRate">—</div><div class="label">Completion Rate %</div></div>
+          </div>
+          <div class="chart-container">
+            <canvas id="costChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 5. MARKETING & ENGAGEMENT ==================== -->
+    <div class="section" id="marketing">
+      <div class="section-header">
+        <h2>5. Marketing &amp; Reader Engagement</h2>
+        <p>Leading indicators: reviews, email growth, ad efficiency (TACOS/ROAS), series read-through.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">📣</span> Ad &amp; Marketing Efficiency</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Total Ad Spend (₹)</label>
+              <input type="number" id="adSpend" value="12500" min="0">
+            </div>
+            <div class="form-group">
+              <label>Total Royalties / Revenue from Ads (₹)</label>
+              <input type="number" id="adRevenue" value="28500" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Overall Marketing Spend (₹)</label>
+              <input type="number" id="mktTotal" value="18500" min="0">
+            </div>
+            <div class="form-group">
+              <label>Attributed Net Sales (₹)</label>
+              <input type="number" id="mktSales" value="52000" min="0">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="calcMarketing()">Calculate Marketing KPIs</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="tacos">—</div><div class="label">TACOS %</div></div>
+            <div class="kpi"><div class="value" id="roas">—</div><div class="label">ROAS</div></div>
+            <div class="kpi"><div class="value" id="mktRoi">—</div><div class="label">Marketing ROI</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">⭐</span> Reviews, Email &amp; Read-through</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>New Reviews (period)</label>
+              <input type="number" id="newReviews" value="48" min="0">
+            </div>
+            <div class="form-group">
+              <label>Days in Period</label>
+              <input type="number" id="reviewDays" value="30" min="1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email List Start</label>
+              <input type="number" id="emailStart" value="4200" min="0">
+            </div>
+            <div class="form-group">
+              <label>Email List End</label>
+              <input type="number" id="emailEnd" value="4850" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Book 1 Buyers</label>
+              <input type="number" id="b1Buyers" value="2100" min="0">
+            </div>
+            <div class="form-group">
+              <label>Book 2 Buyers (from B1)</label>
+              <input type="number" id="b2Buyers" value="980" min="0">
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="reviewVelocity">—</div><div class="label">Reviews / Day</div></div>
+            <div class="kpi"><div class="value" id="emailGrowth">—</div><div class="label">Email Growth %</div></div>
+            <div class="kpi"><div class="value" id="readThrough">—</div><div class="label">Series Read-through %</div></div>
+          </div>
+          <div class="chart-container" style="height:200px;">
+            <canvas id="mktChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 6. AUTHOR & RIGHTS ==================== -->
+    <div class="section" id="author">
+      <div class="section-header">
+        <h2>6. Author, Advances &amp; Rights</h2>
+        <p>Advance recovery, earn-out, royalty burden and subsidiary rights income.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">✍️</span> Advance &amp; Earn-out Calculator</h3>
+          <div class="form-group">
+            <label>Advance Paid (₹)</label>
+            <input type="number" id="advance" value="15000" min="0">
+          </div>
+          <div class="form-group">
+            <label>Royalties Earned to Date (₹)</label>
+            <input type="number" id="royaltiesEarned" value="11200" min="0">
+          </div>
+          <div class="form-group">
+            <label>Expected Lifetime Royalties (₹)</label>
+            <input type="number" id="expectedRoyalties" value="28000" min="0">
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="calcAuthor()">Calculate Author KPIs</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="earnOutPct">—</div><div class="label">Earn-out %</div></div>
+            <div class="kpi"><div class="value" id="unrecovered">—</div><div class="label">Unrecovered Advance (₹)</div></div>
+            <div class="kpi"><div class="value" id="expectedRecovery">—</div><div class="label">Expected Recovery %</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">🌍</span> Rights &amp; Subsidiary Income</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Translation Rights (₹)</label>
+              <input type="number" id="rightsTrans" value="4500" min="0">
+            </div>
+            <div class="form-group">
+              <label>Audio Rights (₹)</label>
+              <input type="number" id="rightsAudio" value="3200" min="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Film / TV / Other (₹)</label>
+              <input type="number" id="rightsFilm" value="0" min="0">
+            </div>
+            <div class="form-group">
+              <label>Total Book Net Revenue (₹)</label>
+              <input type="number" id="rightsBookRev" value="205000" min="0">
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="rightsTotal">—</div><div class="label">Total Rights Income</div></div>
+            <div class="kpi"><div class="value" id="rightsPct">—</div><div class="label">Rights % of Book Rev</div></div>
+          </div>
+          <div class="chart-container">
+            <canvas id="rightsChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 7. CHANNELS & GEOGRAPHY ==================== -->
+    <div class="section" id="channels">
+      <div class="section-header">
+        <h2>7. Channels &amp; Geographic Metrics</h2>
+        <p>Channel concentration, territory performance and risk indicators.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">🗺️</span> Territory / Geographic Split</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Domestic Revenue (₹)</label>
+              <input type="number" id="geoDomestic" value="175000" min="0">
+            </div>
+            <div class="form-group">
+              <label>Export / International (₹)</label>
+              <input type="number" id="geoExport" value="30000" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Top Export Markets (optional notes)</label>
+            <input type="text" id="geoNotes" value="UK, Canada, Australia, India">
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="domesticPct">—</div><div class="label">Domestic %</div></div>
+            <div class="kpi"><div class="value" id="exportPct">—</div><div class="label">Export %</div></div>
+          </div>
+          <div class="chart-container">
+            <canvas id="geoChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">⚠️</span> Channel Concentration Risk</h3>
+          <p class="help" style="margin-bottom:0.8rem;">Uses the channel values entered in the Sales section. High dependence on one channel increases risk.</p>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="topChannelPct">—</div><div class="label">Largest Channel %</div></div>
+            <div class="kpi"><div class="value" id="channelHHI">—</div><div class="label">Concentration (simple)</div></div>
+          </div>
+          <div id="channelRiskNote" style="margin-top:1rem;font-size:0.85rem;color:var(--muted);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 8. OPERATIONAL ==================== -->
+    <div class="section" id="ops">
+      <div class="section-header">
+        <h2>8. Operational &amp; Quality Metrics</h2>
+        <p>On-time delivery, quality, order fill rates and customer metrics.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3><span class="icon">⏱️</span> Schedule &amp; Quality</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>On-time Deliveries</label>
+              <input type="number" id="onTime" value="38" min="0">
+            </div>
+            <div class="form-group">
+              <label>Total Deliveries</label>
+              <input type="number" id="totalDeliv" value="42" min="1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Defect / Error Returns</label>
+              <input type="number" id="defectReturns" value="95" min="0">
+            </div>
+            <div class="form-group">
+              <label>Total Units Shipped</label>
+              <input type="number" id="totalShippedOps" value="12500" min="1">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="calcOps()">Calculate Ops KPIs</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="onTimePct">—</div><div class="label">On-time %</div></div>
+            <div class="kpi"><div class="value" id="defectRate">—</div><div class="label">Defect Rate %</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">📦</span> Order Fill &amp; Service</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Orders Fully Filled</label>
+              <input type="number" id="filledOrders" value="312" min="0">
+            </div>
+            <div class="form-group">
+              <label>Total Orders</label>
+              <input type="number" id="totalOrders" value="340" min="1">
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="value" id="fillRate">—</div><div class="label">Order Fill Rate %</div></div>
+          </div>
+          <p class="help" style="margin-top:1rem;">Target high on-time performance (&gt;90–95%) and low defect rates. Fill rate directly affects retailer relationships and chargebacks.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== FULL REPORT ==================== -->
+    <div class="section" id="report">
+      <div class="section-header">
+        <h2>Full Metrics Report</h2>
+        <p>Snapshot of all calculated KPIs. Update inputs in other tabs and return here, or click Refresh.</p>
+      </div>
+      <div class="btn-row" style="margin-bottom:1rem;">
+        <button class="btn" onclick="generateReport()">Refresh Full Report</button>
+        <button class="btn btn-secondary" onclick="window.print()">Print / Save PDF</button>
+      </div>
+      <div class="card" id="reportContent">
+        <p style="color:var(--muted);">Click “Refresh Full Report” to generate the latest snapshot from all calculators.</p>
+      </div>
+    </div>
+
+    <!-- ==================== GLOSSARY & EXPLANATIONS ==================== -->
+    <div class="section" id="glossary">
+      <div class="section-header">
+        <h2>Glossary &amp; Detailed Explanations</h2>
+        <p>Acronyms, parameters and how each metric is calculated and used in commercial book publishing (Seermai context).</p>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">🔤</span> Key Acronyms</h3>
+        <div class="grid grid-2" style="font-size:0.9rem; line-height:1.7;">
+          <div>
+            <p><strong>ASP</strong> — Average Selling Price: Net revenue ÷ net units. Reflects the real price after discounts.</p>
+            <p><strong>COGS</strong> — Cost of Goods Sold: Direct costs to produce and deliver the book (printing, paper, binding, inbound freight, and often royalties if treated as product cost).</p>
+            <p><strong>DSO</strong> — Days Sales Outstanding: Average number of days to collect payment from retailers/distributors (Accounts Receivable ÷ average daily sales).</p>
+            <p><strong>EBITDA</strong> — Earnings Before Interest, Taxes, Depreciation &amp; Amortisation: A measure of operating profitability.</p>
+            <p><strong>HHI</strong> — Herfindahl-Hirschman Index (simplified): Sum of squared channel shares; higher values mean greater concentration risk.</p>
+            <p><strong>KPI</strong> — Key Performance Indicator: A measurable value that shows how effectively a publisher is achieving key business objectives.</p>
+            <p><strong>OPEX</strong> — Operating Expenses: Fixed and semi-fixed costs of running the publishing business (salaries, rent, overhead, etc.).</p>
+          </div>
+          <div>
+            <p><strong>P&amp;L</strong> — Profit &amp; Loss statement: The financial projection or actual results for a title or the company.</p>
+            <p><strong>ROAS</strong> — Return on Ad Spend: Revenue generated from advertising ÷ ad spend (e.g. 2.3x means ₹2.30 returned per ₹1 spent).</p>
+            <p><strong>TACOS</strong> — Total Advertising Cost of Sales: Ad spend ÷ total royalties or revenue. Shows advertising burden relative to overall sales.</p>
+            <p><strong>YoY / QoQ</strong> — Year-over-Year / Quarter-over-Quarter: Growth comparison versus the same period in the prior year or previous quarter.</p>
+            <p><strong>Frontlist</strong> — New or recently published titles (typically current season / last 12 months).</p>
+            <p><strong>Backlist</strong> — Older titles still in print and generating sales. Usually higher-margin once advances are earned out.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">1</span> Sales &amp; Revenue Metrics — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>Gross Units Shipped</strong> — Total copies sent to retailers, distributors or customers before any returns.</p>
+          <p><strong>Units Returned</strong> — Copies sent back by retailers under returnable terms. High returns reduce true sales and inflate apparent demand.</p>
+          <p><strong>Net Units</strong> = Gross Units − Returned Units. This is the real quantity sold to end customers and the base for most royalty calculations.</p>
+          <p><strong>Gross Billings</strong> — Invoice value before discounts, returns and allowances.</p>
+          <p><strong>Net Revenue (Net Sales Value)</strong> = Gross Billings − Discounts &amp; Allowances − Returns Value. The most important top-line figure for publishers.</p>
+          <p><strong>Average Selling Price (ASP)</strong> = Net Revenue ÷ Net Units. Shows the effective price realised after trade discounts.</p>
+          <p><strong>Return Rate (Units)</strong> = Returned Units ÷ Gross Units × 100. Industry caution levels often start above 15–20%; rates above 25–30% are usually problematic.</p>
+          <p><strong>Format Mix</strong> — Split of sales across Hardcover, Paperback, eBook and Audiobook. Helps decide print runs and format strategy.</p>
+          <p><strong>Channel Revenue</strong> — Sales broken down by Online retail (Amazon etc.), Wholesale/Bookstores, Direct-to-Consumer, Libraries, Special sales and Export. Reveals concentration risk.</p>
+          <p><strong>Frontlist vs Backlist</strong> — Share of revenue from new titles versus older ones. A healthy backlist provides stability and better margins.</p>
+          <p><strong>Sales Velocity</strong> = Net Units of a title ÷ Weeks on Sale. Useful for early performance signals and reprint decisions.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">2</span> Profitability Metrics — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>Gross Profit</strong> = Net Sales − COGS.</p>
+          <p><strong>Gross Margin %</strong> = (Net Sales − COGS) ÷ Net Sales × 100. Many trade publishers aim for 50%+; significantly lower figures often indicate high manufacturing costs, high discounts or high royalty rates.</p>
+          <p><strong>Contribution Margin</strong> = Net Sales − COGS − Direct Costs (marketing, fulfilment, commissions, platform fees). Shows what is left to cover fixed overheads and profit after all variable costs of a title.</p>
+          <p><strong>Contribution Margin %</strong> = Contribution ÷ Net Sales × 100. One of the best single metrics for deciding whether to keep promoting or reprint a title.</p>
+          <p><strong>Royalty % of Revenue</strong> = Author royalties paid ÷ Net Sales × 100. High percentages on underperforming titles destroy overall profitability.</p>
+          <p><strong>Marketing Spend % of Revenue</strong> — Efficiency of promotional investment. Rising spend without matching sales growth is a warning sign.</p>
+          <p><strong>OPEX %</strong> = Total Operating Expenses ÷ Net Sales × 100. Measures overhead efficiency as the business scales.</p>
+          <p><strong>Days Sales Outstanding (DSO)</strong> = Accounts Receivable ÷ Average Daily Sales. Higher DSO means cash is tied up longer with retailers.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">3</span> Returns &amp; Inventory Metrics — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>Average Inventory (units)</strong> = (Beginning Inventory + Ending Inventory) ÷ 2.</p>
+          <p><strong>Inventory Turns</strong> = Units Sold in period ÷ Average Inventory. Higher turns mean stock is moving faster and less capital is locked in inventory. Typical healthy range for trade books is often 3–5+ turns per year.</p>
+          <p><strong>Weeks of Supply</strong> — Approximate number of weeks the current ending stock would last at the recent sales rate. Helps decide reprints versus remaindering.</p>
+          <p><strong>Return Rate</strong> — As above; also calculated on value. High returns destroy profit and distort demand signals.</p>
+          <p><strong>Sell-Through %</strong> = Units sold to end customers ÷ Units shipped to retail × 100. Low sell-through means stock is sitting in the channel and is likely to return.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">4</span> Costs &amp; Production Metrics — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>COGS per Unit</strong> = (Printing + Paper/Materials + Inbound Freight) ÷ Print Run + Royalty per unit + Other variable costs per unit. Core unit economic measure.</p>
+          <p><strong>Fully Loaded Cost per Unit</strong> = COGS per unit + (Development / Pre-publication costs ÷ Print Run). Includes editorial, design, typesetting and cover costs allocated across the print run.</p>
+          <p><strong>Development Cost per Unit</strong> — Pre-publication spend spread over the number of copies. Higher on short runs.</p>
+          <p><strong>Approximate Breakeven Units</strong> — Rough number of units needed to recover development costs after covering variable costs (simplified; refine with actual net ASP and contribution).</p>
+          <p><strong>Schedule Variance %</strong> = (Actual production days − Planned days) ÷ Planned days × 100. Positive variance means delay.</p>
+          <p><strong>Completion Rate %</strong> = Titles completed ÷ Titles planned × 100. Measures delivery against the publishing programme.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">5</span> Marketing &amp; Engagement Metrics — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>TACOS (Total Ad Cost of Sales)</strong> = Ad Spend ÷ Total Royalties or Revenue from the title/period × 100. Lower is better; rising TACOS can indicate advertising is becoming less efficient.</p>
+          <p><strong>ROAS (Return on Ad Spend)</strong> = Revenue attributed to ads ÷ Ad Spend. A ROAS of 3x means ₹3 of revenue for every ₹1 of ad spend.</p>
+          <p><strong>Marketing ROI</strong> = (Attributed Net Sales − Marketing Spend) ÷ Marketing Spend × 100.</p>
+          <p><strong>Review Velocity</strong> = New reviews in period ÷ Number of days. Faster accumulation of reviews improves algorithmic visibility and conversion, especially on Amazon and Goodreads.</p>
+          <p><strong>Email List Growth %</strong> = (Ending list size − Starting list size) ÷ Starting size × 100. One of the highest-ROI assets for launches and backlist promotion.</p>
+          <p><strong>Series Read-through %</strong> = Book 2 buyers (who previously bought Book 1) ÷ Book 1 buyers × 100. Critical for deciding whether paid advertising of a series is profitable.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">6</span> Author, Advances &amp; Rights — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>Advance</strong> — Up-front payment to the author against future royalties. Unrecovered advances are a pure cost.</p>
+          <p><strong>Earn-out %</strong> = Royalties earned to date ÷ Advance × 100. Shows how much of the advance has been “earned back” through sales.</p>
+          <p><strong>Unrecovered Advance</strong> = Advance − Royalties earned to date (floored at zero). Money that has not yet been (and may never be) recovered.</p>
+          <p><strong>Expected Recovery %</strong> = Expected lifetime royalties ÷ Advance × 100. Forward-looking view of whether the advance is likely to earn out.</p>
+          <p><strong>Subsidiary Rights Income</strong> — Revenue from translation, audio, film/TV, serial and other rights. Usually high-margin and an important part of a title’s total contribution.</p>
+          <p><strong>Rights % of Book Revenue</strong> — Rights income relative to the book’s own net sales; highlights the value of rights exploitation.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">7</span> Channels &amp; Geography — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>Largest Channel %</strong> — Share of total channel revenue coming from the single biggest channel. High dependence (especially &gt;50–60%) increases commercial risk if that channel’s terms or algorithm change.</p>
+          <p><strong>Channel Concentration (simple HHI-style)</strong> — Sum of the squares of each channel’s share. Higher numbers indicate more concentration.</p>
+          <p><strong>Domestic vs Export %</strong> — Geographic split of revenue. Useful for understanding currency, logistics and rights opportunities.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <h3><span class="icon">8</span> Operational Metrics — How they work</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p><strong>On-time Delivery %</strong> = On-time deliveries ÷ Total deliveries × 100. Affects retailer relationships and can trigger chargebacks if missed.</p>
+          <p><strong>Defect Rate %</strong> = Defective or error-related returns ÷ Total units shipped × 100. Quality control indicator; even small percentages matter at volume.</p>
+          <p><strong>Order Fill Rate %</strong> = Fully filled orders ÷ Total orders × 100. Measures ability to supply complete orders; incomplete orders frustrate retailers and readers.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><span class="icon">💡</span> Practical notes for Seermai</h3>
+        <div style="font-size:0.9rem; line-height:1.75;">
+          <p>All monetary values in this dashboard are expressed in <strong>Indian Rupees (₹)</strong>.</p>
+          <p><strong>Excel import:</strong> Use the <em>Import Excel</em> button in the header with the companion file <code>Seermai_Metrics_Input_Template.xlsx</code>. Yellow input cells from each sheet are loaded into this dashboard and all calculators/charts refresh automatically.</p>
+          <p>Colour coding on KPI values uses common trade-publishing benchmarks (green = healthy, amber = caution, red = risk). Adjust thresholds to match Seermai’s list size, genre mix (Tamil literature, translations, general fiction, etc.) and distribution model.</p>
+          <p>Track metrics at both <strong>title level</strong> and <strong>overall list / company level</strong>. Title P&amp;Ls that roll up to imprint level are the foundation of good acquisition and reprint decisions.</p>
+          <p>Leading indicators (review velocity, email growth, early sell-through, ad efficiency) help you act before lagging indicators (final units, profit) are known.</p>
+          <p>Use the Full Report tab to capture a snapshot after updating inputs; it can be printed or saved as PDF for internal reviews.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Seermai Metrics Dashboard · Interactive calculators &amp; charts · For internal planning use
+  </footer>
+
+  <script>
+    // ---------- Chart instances ----------
+    let formatChart, channelChart, frontBackChart, marginChart, invChart, costChart, mktChart, rightsChart, geoChart;
+
+    // ---------- Navigation ----------
+    document.querySelectorAll('.nav-tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.section).classList.add('active');
+        if (btn.dataset.section === 'report') generateReport();
+      });
+    });
+
+    // ---------- Helpers ----------
+    function num(id) {
+      const v = parseFloat(document.getElementById(id)?.value);
+      return isNaN(v) ? 0 : v;
+    }
+    function fmt(n, decimals = 0) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+    function fmtPct(n, decimals = 1) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return n.toFixed(decimals) + '%';
+    }
+    function fmtMoney(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return '₹' + fmt(n, 0);
+    }
+    function setText(id, text, className = '') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'value' + (className ? ' ' + className : '');
+    }
+
+    // ---------- 1. Sales ----------
+    function calcSales() {
+      const grossU = num('grossUnits');
+      const retU = num('returnedUnits');
+      const grossB = num('grossBillings');
+      const disc = num('discounts');
+      const retV = num('returnsValue');
+
+      const netU = grossU - retU;
+      const netRev = grossB - disc - retV;
+      const asp = netU > 0 ? netRev / netU : 0;
+      const retRate = grossU > 0 ? (retU / grossU) * 100 : 0;
+
+      setText('netUnits', fmt(netU));
+      setText('netRevenue', fmtMoney(netRev));
+      setText('avgSellingPrice', '₹' + fmt(asp, 2));
+      setText('returnRateUnits', fmtPct(retRate), retRate > 25 ? 'danger' : retRate > 15 ? 'warning' : '');
+
+      // Update global
+      document.getElementById('sumNetRevenue').textContent = fmtMoney(netRev);
+      document.getElementById('sumReturnRate').textContent = fmtPct(retRate);
+
+      // Format chart
+      updateFormatChart();
+      updateChannelChart();
+      updateFrontBack();
+      updateChannelRisk();
+    }
+
+    function updateFormatChart() {
+      const data = [
+        num('hcUnits'),
+        num('pbUnits'),
+        num('ebUnits'),
+        num('abUnits')
+      ];
+      if (formatChart) formatChart.destroy();
+      formatChart = new Chart(document.getElementById('formatChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Hardcover', 'Paperback', 'eBook', 'Audiobook'],
+          datasets: [{
+            data,
+            backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8b9bb4', boxWidth: 12 } }
+          }
+        }
+      });
+    }
+
+    function updateChannelChart() {
+      const data = [
+        num('chOnline'),
+        num('chWholesale'),
+        num('chDirect'),
+        num('chLibrary'),
+        num('chSpecial'),
+        num('chExport')
+      ];
+      if (channelChart) channelChart.destroy();
+      channelChart = new Chart(document.getElementById('channelChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Online', 'Wholesale', 'Direct', 'Library', 'Special', 'Export'],
+          datasets: [{
+            label: 'Revenue ₹',
+            data,
+            backgroundColor: '#3b82f6',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { color: '#8b9bb4' }, grid: { color: '#2d3a4f' } },
+            x: { ticks: { color: '#8b9bb4' }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function updateFrontBack() {
+      const front = num('frontlistRev');
+      const back = num('backlistRev');
+      const total = front + back;
+      const frontPct = total > 0 ? (front / total) * 100 : 0;
+      const weeks = num('weeksOnSale') || 1;
+      const titleUnits = num('titleNetUnits');
+      const velocity = titleUnits / weeks;
+
+      setText('frontBackRatio', fmtPct(frontPct));
+      setText('salesVelocity', fmt(velocity, 1));
+
+      if (frontBackChart) frontBackChart.destroy();
+      frontBackChart = new Chart(document.getElementById('frontBackChart'), {
+        type: 'pie',
+        data: {
+          labels: ['Frontlist', 'Backlist'],
+          datasets: [{
+            data: [front, back],
+            backgroundColor: ['#3b82f6', '#10b981'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8b9bb4', boxWidth: 12 } }
+          }
+        }
+      });
+    }
+
+    // ---------- 2. Profit ----------
+    function calcProfit() {
+      const netSales = num('pNetSales');
+      const cogs = num('pCogs');
+      const direct = num('pDirectCosts');
+      const royalties = num('pRoyalties');
+      const mkt = num('pMktSpend');
+      const opex = num('pOpex');
+      const ar = num('pAR');
+      const daily = num('pDailySales') || 1;
+
+      const grossProfit = netSales - cogs;
+      const grossMargin = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
+      const contrib = netSales - cogs - direct;
+      const contribMargin = netSales > 0 ? (contrib / netSales) * 100 : 0;
+      const royPct = netSales > 0 ? (royalties / netSales) * 100 : 0;
+      const mktPct = netSales > 0 ? (mkt / netSales) * 100 : 0;
+      const opexPct = netSales > 0 ? (opex / netSales) * 100 : 0;
+      const dso = ar / daily;
+
+      setText('grossMarginPct', fmtPct(grossMargin), grossMargin < 40 ? 'danger' : grossMargin < 50 ? 'warning' : '');
+      setText('contribMarginPct', fmtPct(contribMargin), contribMargin < 20 ? 'danger' : contribMargin < 30 ? 'warning' : '');
+      setText('royaltyPct', fmtPct(royPct));
+      setText('grossProfitVal', fmtMoney(grossProfit));
+      setText('mktPct', fmtPct(mktPct));
+      setText('opexPct', fmtPct(opexPct));
+      setText('dso', fmt(dso, 0) + ' days');
+
+      document.getElementById('sumGrossMargin').textContent = fmtPct(grossMargin);
+      document.getElementById('sumContribution').textContent = fmtPct(contribMargin);
+
+      if (marginChart) marginChart.destroy();
+      marginChart = new Chart(document.getElementById('marginChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Gross Margin %', 'Contribution %', 'Royalty %', 'Marketing %'],
+          datasets: [{
+            data: [grossMargin, contribMargin, royPct, mktPct],
+            backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'],
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, max: 80, ticks: { color: '#8b9bb4' }, grid: { color: '#2d3a4f' } },
+            x: { ticks: { color: '#8b9bb4' }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // ---------- 3. Inventory ----------
+    function calcInventory() {
+      const begin = num('invBegin');
+      const end = num('invEnd');
+      const sold = num('invSold');
+      const cogs = num('invCogs');
+      const avgVal = num('invAvgValue');
+      const returns = num('invReturns');
+      const shipped = num('shippedRetail');
+      const soldEnd = num('soldEnd');
+
+      const avgInv = (begin + end) / 2;
+      const turns = avgInv > 0 ? sold / avgInv : 0;
+      const weeksSupply = sold > 0 ? (end / (sold / 52)) : 0; // approximate annualised
+      const retRate = (sold + returns) > 0 ? (returns / (sold + returns)) * 100 : 0;
+      const sellThrough = shipped > 0 ? (soldEnd / shipped) * 100 : 0;
+
+      setText('invTurns', fmt(turns, 2), turns < 2 ? 'danger' : turns < 3 ? 'warning' : '');
+      setText('weeksSupply', fmt(weeksSupply, 1));
+      setText('returnRateInv', fmtPct(retRate), retRate > 25 ? 'danger' : retRate > 15 ? 'warning' : '');
+      setText('avgInventory', fmt(avgInv, 0));
+      setText('sellThrough', fmtPct(sellThrough), sellThrough < 70 ? 'danger' : sellThrough < 85 ? 'warning' : '');
+
+      document.getElementById('sumInventoryTurns').textContent = fmt(turns, 1);
+
+      if (invChart) invChart.destroy();
+      invChart = new Chart(document.getElementById('invChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Sold', 'Still in Inventory (end)', 'Returned'],
+          datasets: [{
+            data: [sold, end, returns],
+            backgroundColor: ['#10b981', '#3b82f6', '#ef4444'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8b9bb4', boxWidth: 12 } }
+          }
+        }
+      });
+    }
+
+    // ---------- 4. Costs ----------
+    function calcCosts() {
+      const run = num('printRun') || 1;
+      const printC = num('printCost');
+      const paper = num('paperCost');
+      const freight = num('freightCost');
+      const royU = num('royaltyPerUnit');
+      const other = num('otherVar');
+      const dev = num('devCost');
+
+      const printPer = (printC + paper + freight) / run;
+      const cogsU = printPer + royU + other;
+      const devU = dev / run;
+      const fullU = cogsU + devU;
+
+      // Simple breakeven: need to cover dev + assume contribution = list-ish - cogs. Use a rough ASP proxy.
+      const assumedASP = 14; // rough net ASP placeholder; user can refine
+      const contribPer = assumedASP - cogsU;
+      const beUnits = contribPer > 0 ? Math.ceil(dev / contribPer) : '—';
+
+      setText('cogsPerUnit', '₹' + fmt(cogsU, 2));
+      setText('totalUnitCost', '₹' + fmt(fullU, 2));
+      setText('devPerUnit', '₹' + fmt(devU, 2));
+      setText('breakevenUnits', typeof beUnits === 'number' ? fmt(beUnits) : beUnits);
+
+      const planned = num('plannedDays') || 1;
+      const actual = num('actualDays');
+      const variance = ((actual - planned) / planned) * 100;
+      const done = num('titlesDone');
+      const plannedT = num('titlesPlanned') || 1;
+      const completion = (done / plannedT) * 100;
+
+      setText('scheduleVariance', fmtPct(variance), variance > 15 ? 'danger' : variance > 5 ? 'warning' : '');
+      setText('completionRate', fmtPct(completion));
+
+      if (costChart) costChart.destroy();
+      costChart = new Chart(document.getElementById('costChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Print+Paper+Freight', 'Royalty/Unit', 'Other Var', 'Dev Allocated'],
+          datasets: [{
+            label: '₹ per unit',
+            data: [printPer, royU, other, devU],
+            backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6', '#10b981'],
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { color: '#8b9bb4' }, grid: { color: '#2d3a4f' } },
+            x: { ticks: { color: '#8b9bb4', font: { size: 10 } }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // ---------- 5. Marketing ----------
+    function calcMarketing() {
+      const spend = num('adSpend');
+      const rev = num('adRevenue');
+      const mkt = num('mktTotal');
+      const sales = num('mktSales');
+
+      const tacos = rev > 0 ? (spend / rev) * 100 : 0;
+      const roas = spend > 0 ? rev / spend : 0;
+      const roi = mkt > 0 ? ((sales - mkt) / mkt) * 100 : 0;
+
+      setText('tacos', fmtPct(tacos), tacos > 40 ? 'danger' : tacos > 25 ? 'warning' : '');
+      setText('roas', fmt(roas, 2) + 'x');
+      setText('mktRoi', fmtPct(roi));
+
+      const newR = num('newReviews');
+      const days = num('reviewDays') || 1;
+      const eStart = num('emailStart');
+      const eEnd = num('emailEnd');
+      const b1 = num('b1Buyers') || 1;
+      const b2 = num('b2Buyers');
+
+      const vel = newR / days;
+      const eGrowth = eStart > 0 ? ((eEnd - eStart) / eStart) * 100 : 0;
+      const readT = (b2 / b1) * 100;
+
+      setText('reviewVelocity', fmt(vel, 1));
+      setText('emailGrowth', fmtPct(eGrowth));
+      setText('readThrough', fmtPct(readT), readT < 30 ? 'danger' : readT < 45 ? 'warning' : '');
+
+      if (mktChart) mktChart.destroy();
+      mktChart = new Chart(document.getElementById('mktChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Review Velocity', 'Email Growth %', 'Read-through %'],
+          datasets: [{
+            data: [vel, eGrowth, readT],
+            backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6'],
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { color: '#8b9bb4' }, grid: { color: '#2d3a4f' } },
+            x: { ticks: { color: '#8b9bb4' }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // ---------- 6. Author ----------
+    function calcAuthor() {
+      const adv = num('advance');
+      const earned = num('royaltiesEarned');
+      const expected = num('expectedRoyalties');
+
+      const earnOut = adv > 0 ? (earned / adv) * 100 : 0;
+      const unrecovered = Math.max(0, adv - earned);
+      const expRec = adv > 0 ? (expected / adv) * 100 : 0;
+
+      setText('earnOutPct', fmtPct(earnOut), earnOut < 50 ? 'danger' : earnOut < 80 ? 'warning' : '');
+      setText('unrecovered', fmtMoney(unrecovered));
+      setText('expectedRecovery', fmtPct(expRec));
+
+      const trans = num('rightsTrans');
+      const audio = num('rightsAudio');
+      const film = num('rightsFilm');
+      const bookRev = num('rightsBookRev') || 1;
+      const totalRights = trans + audio + film;
+      const rightsPct = (totalRights / bookRev) * 100;
+
+      setText('rightsTotal', fmtMoney(totalRights));
+      setText('rightsPct', fmtPct(rightsPct));
+
+      if (rightsChart) rightsChart.destroy();
+      rightsChart = new Chart(document.getElementById('rightsChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Translation', 'Audio', 'Film/TV/Other'],
+          datasets: [{
+            data: [trans, audio, film],
+            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8b9bb4', boxWidth: 12 } }
+          }
+        }
+      });
+    }
+
+    // ---------- 7. Channels / Geo ----------
+    function updateChannelRisk() {
+      const channels = [
+        num('chOnline'),
+        num('chWholesale'),
+        num('chDirect'),
+        num('chLibrary'),
+        num('chSpecial'),
+        num('chExport')
+      ];
+      const total = channels.reduce((a, b) => a + b, 0) || 1;
+      const maxC = Math.max(...channels);
+      const topPct = (maxC / total) * 100;
+      // Simple concentration: sum of squares of shares (higher = more concentrated)
+      const hhi = channels.reduce((acc, c) => acc + Math.pow(c / total, 2), 0);
+
+      setText('topChannelPct', fmtPct(topPct), topPct > 60 ? 'danger' : topPct > 45 ? 'warning' : '');
+      setText('channelHHI', fmt(hhi, 2));
+
+      const note = document.getElementById('channelRiskNote');
+      if (topPct > 60) {
+        note.innerHTML = '<span class="badge bad">High concentration risk</span> — More than 60% of revenue from a single channel. Diversification recommended.';
+      } else if (topPct > 45) {
+        note.innerHTML = '<span class="badge warn">Moderate concentration</span> — Monitor dependence on the largest channel.';
+      } else {
+        note.innerHTML = '<span class="badge good">Healthy channel mix</span> — No single channel dominates excessively.';
+      }
+
+      // Geo
+      const dom = num('geoDomestic');
+      const exp = num('geoExport');
+      const gTotal = dom + exp || 1;
+      setText('domesticPct', fmtPct((dom / gTotal) * 100));
+      setText('exportPct', fmtPct((exp / gTotal) * 100));
+
+      if (geoChart) geoChart.destroy();
+      geoChart = new Chart(document.getElementById('geoChart'), {
+        type: 'pie',
+        data: {
+          labels: ['Domestic', 'Export / International'],
+          datasets: [{
+            data: [dom, exp],
+            backgroundColor: ['#3b82f6', '#10b981'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8b9bb4', boxWidth: 12 } }
+          }
+        }
+      });
+    }
+
+    // ---------- 8. Ops ----------
+    function calcOps() {
+      const onTime = num('onTime');
+      const totalD = num('totalDeliv') || 1;
+      const defects = num('defectReturns');
+      const shipped = num('totalShippedOps') || 1;
+      const filled = num('filledOrders');
+      const orders = num('totalOrders') || 1;
+
+      const onTimeP = (onTime / totalD) * 100;
+      const defRate = (defects / shipped) * 100;
+      const fill = (filled / orders) * 100;
+
+      setText('onTimePct', fmtPct(onTimeP), onTimeP < 90 ? 'danger' : onTimeP < 95 ? 'warning' : '');
+      setText('defectRate', fmtPct(defRate, 2), defRate > 1 ? 'danger' : defRate > 0.5 ? 'warning' : '');
+      setText('fillRate', fmtPct(fill), fill < 90 ? 'danger' : fill < 95 ? 'warning' : '');
+    }
+
+    // ---------- Full Report ----------
+    function generateReport() {
+      // Ensure latest calcs
+      calcSales();
+      calcProfit();
+      calcInventory();
+      calcCosts();
+      calcMarketing();
+      calcAuthor();
+      updateChannelRisk();
+      calcOps();
+
+      const html = `
+        <h3 style="margin-bottom:1rem;color:var(--accent2);">Seermai Metrics Snapshot</h3>
+        <div class="grid grid-2">
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Sales & Revenue</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>Net Units: <strong>${document.getElementById('netUnits').textContent}</strong></li>
+              <li>Net Revenue: <strong>${document.getElementById('netRevenue').textContent}</strong></li>
+              <li>Avg Selling Price: <strong>${document.getElementById('avgSellingPrice').textContent}</strong></li>
+              <li>Return Rate (units): <strong>${document.getElementById('returnRateUnits').textContent}</strong></li>
+              <li>Frontlist %: <strong>${document.getElementById('frontBackRatio').textContent}</strong></li>
+              <li>Sales Velocity (u/wk): <strong>${document.getElementById('salesVelocity').textContent}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Profitability</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>Gross Margin: <strong>${document.getElementById('grossMarginPct').textContent}</strong></li>
+              <li>Contribution Margin: <strong>${document.getElementById('contribMarginPct').textContent}</strong></li>
+              <li>Royalty % of Rev: <strong>${document.getElementById('royaltyPct').textContent}</strong></li>
+              <li>Marketing % of Rev: <strong>${document.getElementById('mktPct').textContent}</strong></li>
+              <li>OPEX %: <strong>${document.getElementById('opexPct').textContent}</strong></li>
+              <li>DSO: <strong>${document.getElementById('dso').textContent}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Inventory & Returns</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>Inventory Turns: <strong>${document.getElementById('invTurns').textContent}</strong></li>
+              <li>Weeks of Supply: <strong>${document.getElementById('weeksSupply').textContent}</strong></li>
+              <li>Return Rate: <strong>${document.getElementById('returnRateInv').textContent}</strong></li>
+              <li>Sell-Through: <strong>${document.getElementById('sellThrough').textContent}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Unit Economics</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>COGS / Unit: <strong>${document.getElementById('cogsPerUnit').textContent}</strong></li>
+              <li>Fully Loaded / Unit: <strong>${document.getElementById('totalUnitCost').textContent}</strong></li>
+              <li>Dev Cost / Unit: <strong>${document.getElementById('devPerUnit').textContent}</strong></li>
+              <li>Approx Breakeven Units: <strong>${document.getElementById('breakevenUnits').textContent}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Marketing & Engagement</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>TACOS: <strong>${document.getElementById('tacos').textContent}</strong></li>
+              <li>ROAS: <strong>${document.getElementById('roas').textContent}</strong></li>
+              <li>Review Velocity: <strong>${document.getElementById('reviewVelocity').textContent}</strong></li>
+              <li>Email Growth: <strong>${document.getElementById('emailGrowth').textContent}</strong></li>
+              <li>Series Read-through: <strong>${document.getElementById('readThrough').textContent}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Author & Rights</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>Earn-out %: <strong>${document.getElementById('earnOutPct').textContent}</strong></li>
+              <li>Unrecovered Advance: <strong>${document.getElementById('unrecovered').textContent}</strong></li>
+              <li>Total Rights Income: <strong>${document.getElementById('rightsTotal').textContent}</strong></li>
+              <li>Rights % of Book Rev: <strong>${document.getElementById('rightsPct').textContent}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Channels & Geography</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>Largest Channel %: <strong>${document.getElementById('topChannelPct').textContent}</strong></li>
+              <li>Domestic %: <strong>${document.getElementById('domesticPct').textContent}</strong></li>
+              <li>Export %: <strong>${document.getElementById('exportPct').textContent}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom:0.5rem;">Operational</h4>
+            <ul style="list-style:none;font-size:0.9rem;line-height:1.8;">
+              <li>On-time Delivery: <strong>${document.getElementById('onTimePct').textContent}</strong></li>
+              <li>Defect Rate: <strong>${document.getElementById('defectRate').textContent}</strong></li>
+              <li>Order Fill Rate: <strong>${document.getElementById('fillRate').textContent}</strong></li>
+            </ul>
+          </div>
+        </div>
+        <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted);">Generated from current inputs. Colour coding on individual KPIs indicates healthy / caution / risk thresholds based on common trade-publishing benchmarks. Adjust thresholds for your list and market.</p>
+      `;
+      document.getElementById('reportContent').innerHTML = html;
+    }
+
+    // ---------- Recalculate everything ----------
+    function recalcAll() {
+      calcSales();
+      calcProfit();
+      calcInventory();
+      calcCosts();
+      calcMarketing();
+      calcAuthor();
+      updateChannelRisk();
+      calcOps();
+    }
+
+    // ---------- Excel Import ----------
+    // Maps Seermai_Metrics_Input_Template.xlsx cells → HTML input IDs
+    // Only INPUT (yellow) cells are imported; calculated fields stay formula-driven in the UI.
+    const EXCEL_MAP = {
+      // Sales sheet
+      'Sales': {
+        'B6': 'grossUnits',
+        'B7': 'returnedUnits',
+        'B8': 'grossBillings',
+        'B9': 'discounts',
+        'B10': 'returnsValue',
+        'B11': 'listPrice',
+        'B22': 'hcUnits',
+        'B23': 'pbUnits',
+        'B24': 'ebUnits',
+        'B25': 'abUnits',
+        'B30': 'chOnline',
+        'B31': 'chWholesale',
+        'B32': 'chDirect',
+        'B33': 'chLibrary',
+        'B34': 'chSpecial',
+        'B35': 'chExport',
+        'B40': 'frontlistRev',
+        'B41': 'backlistRev',
+        'B42': 'weeksOnSale',
+        'B43': 'titleNetUnits'
+      },
+      // Profitability
+      'Profitability': {
+        'B6': 'pNetSales',
+        'B7': 'pCogs',
+        'B8': 'pDirectCosts',
+        'B9': 'pRoyalties',
+        'B21': 'pMktSpend',
+        'B22': 'pOpex',
+        'B23': 'pAR',
+        'B24': 'pDailySales'
+      },
+      // Inventory
+      'Inventory': {
+        'B6': 'invBegin',
+        'B7': 'invEnd',
+        'B8': 'invSold',
+        'B9': 'invCogs',
+        'B10': 'invAvgValue',
+        'B11': 'invReturns',
+        'B21': 'shippedRetail',
+        'B22': 'soldEnd'
+      },
+      // Costs
+      'Costs': {
+        'B6': 'printRun',
+        'B7': 'printCost',
+        'B8': 'paperCost',
+        'B9': 'freightCost',
+        'B10': 'royaltyPerUnit',
+        'B11': 'otherVar',
+        'B12': 'devCost',
+        'B24': 'plannedDays',
+        'B25': 'actualDays',
+        'B26': 'titlesDone',
+        'B27': 'titlesPlanned'
+      },
+      // Marketing
+      'Marketing': {
+        'B6': 'adSpend',
+        'B7': 'adRevenue',
+        'B8': 'mktTotal',
+        'B9': 'mktSales',
+        'B18': 'newReviews',
+        'B19': 'reviewDays',
+        'B20': 'emailStart',
+        'B21': 'emailEnd',
+        'B22': 'b1Buyers',
+        'B23': 'b2Buyers'
+      },
+      // Author_Rights
+      'Author_Rights': {
+        'B6': 'advance',
+        'B7': 'royaltiesEarned',
+        'B8': 'expectedRoyalties',
+        'B17': 'rightsTrans',
+        'B18': 'rightsAudio',
+        'B19': 'rightsFilm',
+        'B20': 'rightsBookRev'
+      },
+      // Channels (geo inputs only; channel revenues come from Sales)
+      'Channels': {
+        'B19': 'geoDomestic',
+        'B20': 'geoExport'
+      },
+      // Operational
+      'Operational': {
+        'B6': 'onTime',
+        'B7': 'totalDeliv',
+        'B8': 'defectReturns',
+        'B9': 'totalShippedOps',
+        'B10': 'filledOrders',
+        'B11': 'totalOrders'
+      }
+    };
+
+    function cellRefToRowCol(ref) {
+      const m = String(ref).match(/^([A-Z]+)(\d+)$/i);
+      if (!m) return null;
+      let col = 0;
+      const letters = m[1].toUpperCase();
+      for (let i = 0; i < letters.length; i++) {
+        col = col * 26 + (letters.charCodeAt(i) - 64);
+      }
+      return { r: parseInt(m[2], 10) - 1, c: col - 1 }; // 0-based for sheet_to_json style
+    }
+
+    function getCellValue(sheet, ref) {
+      if (!sheet || !sheet[ref]) return null;
+      const cell = sheet[ref];
+      if (cell.t === 'n' || typeof cell.v === 'number') return cell.v;
+      if (cell.t === 's' || typeof cell.v === 'string') {
+        const n = parseFloat(String(cell.v).replace(/[₹,\s]/g, ''));
+        return isNaN(n) ? null : n;
+      }
+      if (cell.v != null && cell.v !== '') {
+        const n = parseFloat(cell.v);
+        return isNaN(n) ? null : n;
+      }
+      return null;
+    }
+
+    function setInputValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el || value === null || value === undefined || isNaN(value)) return false;
+      el.value = value;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+
+    function importExcelFile(file) {
+      const status = document.getElementById('importStatus');
+      if (!file) return;
+      status.textContent = 'Reading…';
+      status.style.color = 'var(--muted)';
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+
+          let updated = 0;
+          let missingSheets = [];
+
+          Object.keys(EXCEL_MAP).forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            if (!sheet) {
+              missingSheets.push(sheetName);
+              return;
+            }
+            const map = EXCEL_MAP[sheetName];
+            Object.keys(map).forEach(ref => {
+              const val = getCellValue(sheet, ref);
+              if (val !== null && setInputValue(map[ref], val)) {
+                updated++;
+              }
+            });
+          });
+
+          recalcAll();
+
+          let msg = `Imported ${updated} values from “${file.name}”.`;
+          if (missingSheets.length) {
+            msg += ` (Sheets not found: ${missingSheets.join(', ')})`;
+          }
+          status.textContent = msg;
+          status.style.color = '#34d399';
+
+          // Brief highlight of updated fields
+          Object.keys(EXCEL_MAP).forEach(sheetName => {
+            Object.values(EXCEL_MAP[sheetName]).forEach(id => {
+              const el = document.getElementById(id);
+              if (el) {
+                el.style.transition = 'box-shadow 0.3s';
+                el.style.boxShadow = '0 0 0 2px #10b981';
+                setTimeout(() => { el.style.boxShadow = ''; }, 1800);
+              }
+            });
+          });
+        } catch (err) {
+          console.error(err);
+          status.textContent = 'Import failed: ' + (err.message || 'invalid file');
+          status.style.color = '#f87171';
+        }
+      };
+      reader.onerror = function () {
+        status.textContent = 'Could not read the file.';
+        status.style.color = '#f87171';
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // ---------- Init ----------
+    window.addEventListener('DOMContentLoaded', () => {
+      recalcAll();
+
+      const fileInput = document.getElementById('excelImport');
+      if (fileInput) {
+        fileInput.addEventListener('change', function () {
+          if (this.files && this.files[0]) {
+            importExcelFile(this.files[0]);
+            this.value = ''; // allow re-importing same file
+          }
+        });
+      }
+
+      const btnRecalc = document.getElementById('btnRecalcAll');
+      if (btnRecalc) {
+        btnRecalc.addEventListener('click', () => {
+          recalcAll();
+          const status = document.getElementById('importStatus');
+          if (status) {
+            status.textContent = 'All sections recalculated.';
+            status.style.color = 'var(--muted)';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
