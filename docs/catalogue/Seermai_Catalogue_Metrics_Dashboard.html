@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seermai Catalogue Metrics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --primary: #1F4E79;
+  --primary-light: #2E75B6;
+  --accent: #5B9BD5;
+  --bg: #F5F7FA;
+  --card: #FFFFFF;
+  --text: #1A1A2E;
+  --muted: #6B7280;
+  --border: #E5E7EB;
+  --success: #059669;
+  --warning: #D97706;
+  --danger: #DC2626;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+.header {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  padding: 1.25rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+.header-actions { display: flex; gap: 0.75rem; align-items: center; }
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.btn-primary { background: white; color: var(--primary); }
+.btn-primary:hover { background: #E8F0FE; }
+.btn-secondary { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
+.btn-secondary:hover { background: rgba(255,255,255,0.25); }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { background: #047857; }
+.layout { display: flex; min-height: calc(100vh - 70px); }
+.sidebar {
+  width: 260px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  padding: 1.25rem 0;
+  overflow-y: auto;
+  position: sticky;
+  top: 70px;
+  height: calc(100vh - 70px);
+}
+.nav-item {
+  display: block;
+  padding: 0.65rem 1.5rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+.nav-item:hover, .nav-item.active {
+  background: #EEF4FB;
+  color: var(--primary);
+  border-left-color: var(--primary);
+}
+.nav-section {
+  padding: 0.75rem 1.5rem 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9CA3AF;
+}
+.main { flex: 1; padding: 1.5rem 2rem; overflow-x: hidden; }
+.section {
+  display: none;
+  animation: fadeIn 0.25s ease;
+}
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.section-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.35rem;
+}
+.section-desc { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.95rem; }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+.card {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border: 1px solid var(--border);
+}
+.card-label { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.card-value { font-size: 1.75rem; font-weight: 700; color: var(--primary); margin-top: 0.2rem; }
+.card-sub { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
+.panel {
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.panel-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--primary);
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.chart-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  height: 320px;
+  position: relative;
+}
+.chart-box h4 { font-size: 0.9rem; font-weight: 600; color: var(--primary); margin-bottom: 0.5rem; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+th, td {
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  background: #F0F5FA;
+  font-weight: 650;
+  color: var(--primary);
+  position: sticky;
+  top: 0;
+}
+tr:hover td { background: #F8FAFC; }
+.table-wrap { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+.form-group label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+.form-group input:focus, .form-group select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(91,155,213,0.2);
+}
+.calc-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+.calc-result {
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--success);
+  min-width: 180px;
+}
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.badge-yes { background: #D1FAE5; color: #065F46; }
+.badge-no { background: #FEE2E2; color: #991B1B; }
+.glossary-item {
+  margin-bottom: 1.1rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.glossary-term {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+.glossary-def { color: #374151; font-size: 0.92rem; }
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--muted);
+}
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--primary);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  z-index: 999;
+  display: none;
+  font-weight: 500;
+}
+.file-input-label {
+  cursor: pointer;
+}
+input[type="file"] { display: none; }
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: relative; top: 0; display: flex; overflow-x: auto; padding: 0.5rem; }
+  .nav-section { display: none; }
+  .nav-item { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+  .nav-item.active { border-bottom-color: var(--primary); }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Seermai Catalogue Metrics Dashboard</h1>
+  <div class="header-actions">
+    <label class="btn btn-secondary file-input-label">
+      📂 Import Excel
+      <input type="file" id="excelInput" accept=".xlsx,.xls,.csv">
+    </label>
+    <button class="btn btn-secondary" onclick="exportCurrentData()">⬇ Export JSON</button>
+    <button class="btn btn-primary" onclick="addSampleData()">+ Sample Data</button>
+    <button class="btn btn-success" onclick="recalculateAll()">↻ Recalculate</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="nav-section">Overview</div>
+    <a href="#" class="nav-item active" data-section="overview">Dashboard Overview</a>
+    <a href="#" class="nav-item" data-section="data">Title Data Table</a>
+    
+    <div class="nav-section">Core Metrics</div>
+    <a href="#" class="nav-item" data-section="identifiers">Core Identifiers</a>
+    <a href="#" class="nav-item" data-section="time">Time-Based Metrics</a>
+    <a href="#" class="nav-item" data-section="genre">Genre & Subject</a>
+    <a href="#" class="nav-item" data-section="volume">Volume & Output</a>
+    
+    <div class="nav-section">Production & Rights</div>
+    <a href="#" class="nav-item" data-section="format">Format & Production</a>
+    <a href="#" class="nav-item" data-section="rights">Rights & Translation</a>
+    <a href="#" class="nav-item" data-section="diversity">Author & Diversity</a>
+    
+    <div class="nav-section">Analysis</div>
+    <a href="#" class="nav-item" data-section="calculators">Calculators</a>
+    <a href="#" class="nav-item" data-section="charts">Charts & Trends</a>
+    
+    <div class="nav-section">Reference</div>
+    <a href="#" class="nav-item" data-section="glossary">Acronyms & Explanations</a>
+  </nav>
+
+  <main class="main">
+    <!-- OVERVIEW -->
+    <section id="overview" class="section active">
+      <h2 class="section-title">Dashboard Overview</h2>
+      <p class="section-desc">High-level snapshot of catalogue publication activity (title output, not sales). Import an Excel file matching the provided template or use sample data to explore.</p>
+      
+      <div class="cards" id="kpiCards">
+        <div class="card"><div class="card-label">Total Titles</div><div class="card-value" id="kpiTotal">0</div><div class="card-sub">All ISBNs loaded</div></div>
+        <div class="card"><div class="card-label">New Titles</div><div class="card-value" id="kpiNew">0</div><div class="card-sub">First editions / new works</div></div>
+        <div class="card"><div class="card-label">Translated</div><div class="card-value" id="kpiTrans">0</div><div class="card-sub">Works from other languages</div></div>
+        <div class="card"><div class="card-label">Unique Authors</div><div class="card-value" id="kpiAuthors">0</div><div class="card-sub">Distinct author names</div></div>
+        <div class="card"><div class="card-label">Avg Pages</div><div class="card-value" id="kpiPages">—</div><div class="card-sub">Mean page count</div></div>
+        <div class="card"><div class="card-label">Years Covered</div><div class="card-value" id="kpiYears">—</div><div class="card-sub">Publication year range</div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-box"><h4>Titles by Primary Genre</h4><canvas id="chartGenreOverview"></canvas></div>
+        <div class="chart-box"><h4>Titles by Year</h4><canvas id="chartYearOverview"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Quick Status</div>
+        <p id="statusText" style="color:var(--muted)">No data loaded. Click “+ Sample Data” or import an Excel file using the template.</p>
+      </div>
+    </section>
+
+    <!-- DATA TABLE -->
+    <section id="data" class="section">
+      <h2 class="section-title">Title Data Table</h2>
+      <p class="section-desc">Full list of loaded titles. Edit cells is not supported live — re-import after changes in Excel, or clear and re-add samples.</p>
+      <div class="panel">
+        <div class="panel-title">
+          <span>All Titles (<span id="tableCount">0</span>)</span>
+          <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.7rem" onclick="clearData()">Clear All Data</button>
+        </div>
+        <div class="table-wrap">
+          <table id="dataTable">
+            <thead>
+              <tr>
+                <th>ISBN</th><th>Title</th><th>Author</th><th>Year</th><th>Genre</th><th>Age</th>
+                <th>Format</th><th>Pages</th><th>New?</th><th>Translated?</th>
+              </tr>
+            </thead>
+            <tbody id="dataTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- IDENTIFIERS -->
+    <section id="identifiers" class="section">
+      <h2 class="section-title">Core Publication Identifiers</h2>
+      <p class="section-desc">Bibliographic foundation fields used to uniquely identify each title and edition.</p>
+      <div class="panel">
+        <div class="panel-title">Identifier Coverage</div>
+        <div class="cards" id="idCards"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Publishers / Imprints in Catalog</div>
+        <div class="table-wrap" style="max-height:280px">
+          <table><thead><tr><th>Publisher</th><th>Imprint</th><th>Title Count</th></tr></thead>
+          <tbody id="pubTableBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TIME -->
+    <section id="time" class="section">
+      <h2 class="section-title">Time-Based Metrics</h2>
+      <p class="section-desc">Publication timing, seasonality, and year-over-year volume trends.</p>
+      <div class="cards" id="timeCards"></div>
+      <div class="charts-grid">
+        <div class="chart-box"><h4>Titles per Year</h4><canvas id="chartYear"></canvas></div>
+        <div class="chart-box"><h4>Titles by Month (All Years Combined)</h4><canvas id="chartMonth"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Year-over-Year Growth Calculator</div>
+        <div class="calc-row">
+          <div class="form-group"><label>Earlier Year Count</label><input type="number" id="yoyPrev" value="0"></div>
+          <div class="form-group"><label>Later Year Count</label><input type="number" id="yoyCurr" value="0"></div>
+          <button class="btn btn-primary" onclick="calcYoY()">Calculate YoY %</button>
+          <div class="calc-result" id="yoyResult">—</div>
+        </div>
+        <p style="font-size:0.85rem;color:var(--muted)">Formula: ((Later − Earlier) / Earlier) × 100. Uses loaded data when available; you can also type custom numbers.</p>
+      </div>
+    </section>
+
+    <!-- GENRE -->
+    <section id="genre" class="section">
+      <h2 class="section-title">Genre / Subject Classification</h2>
+      <p class="section-desc">Content mix by primary genre, sub-genre, age category, and work type.</p>
+      <div class="charts-grid">
+        <div class="chart-box"><h4>Primary Genre Distribution</h4><canvas id="chartGenre"></canvas></div>
+        <div class="chart-box"><h4>Age Category Distribution</h4><canvas id="chartAge"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Genre Breakdown Table</div>
+        <div class="table-wrap" style="max-height:300px">
+          <table><thead><tr><th>Primary Genre</th><th>Count</th><th>Share %</th></tr></thead>
+          <tbody id="genreTableBody"></tbody></table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Age Category Breakdown</div>
+        <div class="table-wrap" style="max-height:220px">
+          <table><thead><tr><th>Age Category</th><th>Count</th><th>Share %</th></tr></thead>
+          <tbody id="ageTableBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VOLUME -->
+    <section id="volume" class="section">
+      <h2 class="section-title">Volume / Output Metrics</h2>
+      <p class="section-desc">Core counts: new vs reprint, translated vs original, series vs standalone, page aggregates.</p>
+      <div class="cards" id="volumeCards"></div>
+      <div class="charts-grid">
+        <div class="chart-box"><h4>New vs Existing / Reprint</h4><canvas id="chartNew"></canvas></div>
+        <div class="chart-box"><h4>Original vs Translated</h4><canvas id="chartTrans"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Page Count Statistics</div>
+        <div class="cards" id="pageCards"></div>
+      </div>
+    </section>
+
+    <!-- FORMAT -->
+    <section id="format" class="section">
+      <h2 class="section-title">Format & Production Details</h2>
+      <p class="section-desc">Binding, medium (print / digital / audio), and production characteristics.</p>
+      <div class="charts-grid">
+        <div class="chart-box"><h4>Format Medium</h4><canvas id="chartFormat"></canvas></div>
+        <div class="chart-box"><h4>Binding Type</h4><canvas id="chartBinding"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Format Summary Table</div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Format Medium</th><th>Count</th><th>Share %</th></tr></thead>
+          <tbody id="formatTableBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHTS -->
+    <section id="rights" class="section">
+      <h2 class="section-title">Rights, Translation & International</h2>
+      <p class="section-desc">Source languages, countries of origin, and translation activity.</p>
+      <div class="cards" id="rightsCards"></div>
+      <div class="charts-grid">
+        <div class="chart-box"><h4>Source Languages (Translated Titles)</h4><canvas id="chartSourceLang"></canvas></div>
+        <div class="chart-box"><h4>Publication Languages</h4><canvas id="chartPubLang"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Source Country Breakdown (Translated Works)</div>
+        <div class="table-wrap" style="max-height:250px">
+          <table><thead><tr><th>Source Country</th><th>Count</th></tr></thead>
+          <tbody id="sourceCountryBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- DIVERSITY -->
+    <section id="diversity" class="section">
+      <h2 class="section-title">Author, Translator & Diversity Metrics</h2>
+      <p class="section-desc">Unique creators, debut vs established authors, and optional demographic indicators (use responsibly).</p>
+      <div class="cards" id="divCards"></div>
+      <div class="charts-grid">
+        <div class="chart-box"><h4>Debut vs Established Authors</h4><canvas id="chartDebut"></canvas></div>
+        <div class="chart-box"><h4>Author Gender (where recorded)</h4><canvas id="chartGender"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Top Authors by Title Count</div>
+        <div class="table-wrap" style="max-height:280px">
+          <table><thead><tr><th>Author</th><th>Titles</th></tr></thead>
+          <tbody id="authorTableBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CALCULATORS -->
+    <section id="calculators" class="section">
+      <h2 class="section-title">Calculators</h2>
+      <p class="section-desc">Interactive tools for growth rates, shares, averages, and custom scenario calculations.</p>
+      
+      <div class="panel">
+        <div class="panel-title">1. Year-over-Year Growth</div>
+        <div class="calc-row">
+          <div class="form-group"><label>Previous Period Count</label><input type="number" id="calcPrev" placeholder="e.g. 120"></div>
+          <div class="form-group"><label>Current Period Count</label><input type="number" id="calcCurr" placeholder="e.g. 145"></div>
+          <button class="btn btn-primary" onclick="runYoYCalc()">Calculate</button>
+          <div class="calc-result" id="calcYoYOut">Result will appear here</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">2. Percentage Share</div>
+        <div class="calc-row">
+          <div class="form-group"><label>Part (subset count)</label><input type="number" id="calcPart" placeholder="e.g. 40"></div>
+          <div class="form-group"><label>Whole (total count)</label><input type="number" id="calcWhole" placeholder="e.g. 200"></div>
+          <button class="btn btn-primary" onclick="runShareCalc()">Calculate Share %</button>
+          <div class="calc-result" id="calcShareOut">Result will appear here</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">3. Average Pages / Length</div>
+        <div class="calc-row">
+          <div class="form-group"><label>Total Pages (aggregate)</label><input type="number" id="calcTotalPages" placeholder="e.g. 12500"></div>
+          <div class="form-group"><label>Number of Titles</label><input type="number" id="calcNumTitles" placeholder="e.g. 48"></div>
+          <button class="btn btn-primary" onclick="runAvgCalc()">Calculate Average</button>
+          <div class="calc-result" id="calcAvgOut">Result will appear here</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">4. Lead Time (Acquisition → Publication)</div>
+        <div class="calc-row">
+          <div class="form-group"><label>Acquisition Date</label><input type="date" id="calcAcq"></div>
+          <div class="form-group"><label>Publication Date</label><input type="date" id="calcPub"></div>
+          <button class="btn btn-primary" onclick="runLeadCalc()">Calculate Days</button>
+          <div class="calc-result" id="calcLeadOut">Result will appear here</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">5. Auto-fill from Loaded Data</div>
+        <p style="margin-bottom:0.75rem;color:var(--muted);font-size:0.9rem">Populate calculator fields from current dataset aggregates.</p>
+        <button class="btn btn-secondary" onclick="autoFillCalcs()">Fill Calculators from Data</button>
+      </div>
+    </section>
+
+    <!-- CHARTS -->
+    <section id="charts" class="section">
+      <h2 class="section-title">Charts & Trends</h2>
+      <p class="section-desc">Visual summary of the key dimensions of catalogue output.</p>
+      <div class="charts-grid">
+        <div class="chart-box"><h4>Titles by Year</h4><canvas id="chartYear2"></canvas></div>
+        <div class="chart-box"><h4>Genre Mix</h4><canvas id="chartGenre2"></canvas></div>
+        <div class="chart-box"><h4>Format Medium</h4><canvas id="chartFormat2"></canvas></div>
+        <div class="chart-box"><h4>New vs Translated Split</h4><canvas id="chartCombo"></canvas></div>
+      </div>
+    </section>
+
+    <!-- GLOSSARY -->
+    <section id="glossary" class="section">
+      <h2 class="section-title">Acronyms & Detailed Explanations</h2>
+      <p class="section-desc">Definitions of every major term, acronym, and metric used in this dashboard and the accompanying Excel template.</p>
+      
+      <div class="panel">
+        <div class="glossary-item">
+          <div class="glossary-term">ISBN (International Standard Book Number)</div>
+          <div class="glossary-def">A unique 13-digit commercial identifier assigned to a specific edition and format of a book. Different formats (hardcover, paperback, ebook) of the same content usually receive different ISBNs. The dashboard treats each ISBN as one “title row” for counting purposes.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">BISAC (Book Industry Standards and Communications)</div>
+          <div class="glossary-def">The subject classification system maintained by the Book Industry Study Group (BISG). Codes such as FIC019000 (Literary Fiction) or BUS071000 (Leadership) enable consistent genre/subject reporting across publishers, retailers, and data services.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">UDC (Universal Decimal Classification)</div>
+          <div class="glossary-def">An international library classification system. Many national statistical offices and UNESCO-aligned book production reports still use UDC subject groups (Generalities, Philosophy, Religion, Literature, History, etc.).</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">YoY (Year-over-Year)</div>
+          <div class="glossary-def">The percentage change between the same metric measured in two consecutive years (or comparable periods). Formula: ((Current − Previous) / Previous) × 100. Positive values indicate growth in title output.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Title Output / Catalogue Volume</div>
+          <div class="glossary-def">The total number of distinct titles (or ISBNs) published in a defined period. This is the central focus of the dashboard — it measures publishing activity, not commercial success (sales or revenue).</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">New Title vs Reprint / Re-edition</div>
+          <div class="glossary-def">A “New Title” is generally the first appearance of a work (or a substantially revised edition). A reprint or re-impression is an additional printing of an already published edition. Tracking the ratio shows how much of the list is fresh content versus backlist support.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Translated vs Original Language Work</div>
+          <div class="glossary-def">Indicates whether the published edition is a translation from another language or was originally written in the language of publication. Source Language and Source Country further describe the origin of translated works.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Imprint</div>
+          <div class="glossary-def">A brand or trade name under which a publishing house releases books. One corporate publisher may operate multiple imprints specialized by genre, audience, or market.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Edition Number & Print Run / Impression</div>
+          <div class="glossary-def">Edition Number distinguishes major revisions (1st edition, 2nd revised edition). Print Run or Impression Number tracks successive printings of the same edition (1st printing, 2nd printing, etc.).</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Lead Time (Acquisition → Publication)</div>
+          <div class="glossary-def">The number of days (or months) between the date rights were acquired / contract signed and the actual publication date. Longer lead times may indicate complex production or translation pipelines.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Format Medium</div>
+          <div class="glossary-def">The physical or digital form of the published product: Print only, Digital/ebook only, Audio, or Both (multi-format release). Binding Type further details print editions (Hardcover, Paperback, etc.).</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Age Category / Audience</div>
+          <div class="glossary-def">Intended primary readership band: Adult, Young Adult (YA), Middle Grade, Children, or Educational. Used alongside genre to understand the portfolio mix.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Work Type</div>
+          <div class="glossary-def">Structural form of the content: Novel, Short Story Collection, Essay Collection, Anthology, Monograph, Textbook, Graphic Novel, etc. Distinct from subject/genre.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Series vs Standalone</div>
+          <div class="glossary-def">Whether a title belongs to a named series (with volume numbering) or is a complete independent work. Series titles often share branding and marketing strategies.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Debut Author</div>
+          <div class="glossary-def">An author publishing their first book (or first book with the reporting publisher). The ratio of debut to established authors indicates investment in new voices.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">Metadata Completeness</div>
+          <div class="glossary-def">The percentage of titles that have key fields populated (subject codes, translator credit, page count, language, etc.). Higher completeness improves discoverability, reporting accuracy, and downstream analytics.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">POD (Print-on-Demand)</div>
+          <div class="glossary-def">A production method in which copies are printed only when ordered. Common for self-published and short-run titles; can inflate raw title counts relative to traditional offset print runs.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">STM</div>
+          <div class="glossary-def">Scientific, Technical, and Medical publishing — a major professional/academic segment with distinct subject coding, pricing, and distribution patterns.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">How Aggregates Are Calculated in This Dashboard</div>
+          <div class="glossary-def">
+            <ul style="margin-top:0.4rem;padding-left:1.2rem">
+              <li><strong>Total Titles</strong> = number of rows / ISBNs loaded.</li>
+              <li><strong>New Titles</strong> = rows where Is_New_Title = “Yes”.</li>
+              <li><strong>Translated</strong> = rows where Is_Translated = “Yes”.</li>
+              <li><strong>Unique Authors</strong> = distinct values in the Author column (case-insensitive trim).</li>
+              <li><strong>Average Pages</strong> = mean of numeric Page_Count values (blank/zero excluded).</li>
+              <li><strong>Shares %</strong> = (group count / total titles) × 100, rounded to 1 decimal.</li>
+              <li><strong>YoY Growth</strong> = ((later year count − earlier year count) / earlier year count) × 100.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== DATA STORE ==========
+let titles = [];
+const charts = {};
+
+// ========== NAVIGATION ==========
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById(item.dataset.section).classList.add('active');
+  });
+});
+
+// ========== UTILITIES ==========
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3200);
+}
+
+function countBy(arr, key) {
+  const map = {};
+  arr.forEach(r => {
+    let v = (r[key] || 'Unknown').toString().trim() || 'Unknown';
+    map[v] = (map[v] || 0) + 1;
+  });
+  return map;
+}
+
+function yesCount(arr, key) {
+  return arr.filter(r => (r[key] || '').toString().toLowerCase() === 'yes').length;
+}
+
+function numAvg(arr, key) {
+  const nums = arr.map(r => parseFloat(r[key])).filter(n => !isNaN(n) && n > 0);
+  if (!nums.length) return null;
+  return nums.reduce((a,b) => a+b, 0) / nums.length;
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function makeChart(canvasId, type, labels, data, label = '') {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const colors = [
+    '#1F4E79','#2E75B6','#5B9BD5','#9DC3E6','#059669','#D97706',
+    '#7C3AED','#DB2777','#0891B2','#65A30D','#EA580C','#4F46E5'
+  ];
+  charts[canvasId] = new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        backgroundColor: type === 'line' ? 'rgba(46,117,182,0.15)' : colors,
+        borderColor: type === 'line' ? '#1F4E79' : colors,
+        borderWidth: type === 'line' ? 2 : 1,
+        fill: type === 'line',
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: type === 'pie' || type === 'doughnut', position: 'bottom' } },
+      scales: type === 'pie' || type === 'doughnut' ? {} : {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+}
+
+// ========== RENDER ALL ==========
+function recalculateAll() {
+  renderKPIs();
+  renderDataTable();
+  renderIdentifiers();
+  renderTime();
+  renderGenre();
+  renderVolume();
+  renderFormat();
+  renderRights();
+  renderDiversity();
+  renderExtraCharts();
+  document.getElementById('statusText').textContent = titles.length
+    ? `Loaded ${titles.length} title(s). Last recalculation: ${new Date().toLocaleString()}.`
+    : 'No data loaded. Click “+ Sample Data” or import an Excel file.';
+  showToast('Dashboard recalculated');
+}
+
+function renderKPIs() {
+  document.getElementById('kpiTotal').textContent = titles.length;
+  document.getElementById('kpiNew').textContent = yesCount(titles, 'Is_New_Title');
+  document.getElementById('kpiTrans').textContent = yesCount(titles, 'Is_Translated');
+  const authors = new Set(titles.map(t => (t.Author || '').toString().trim().toLowerCase()).filter(Boolean));
+  document.getElementById('kpiAuthors').textContent = authors.size;
+  const avg = numAvg(titles, 'Page_Count');
+  document.getElementById('kpiPages').textContent = avg ? avg.toFixed(0) : '—';
+  const years = titles.map(t => parseInt(t.Publication_Year)).filter(y => !isNaN(y));
+  document.getElementById('kpiYears').textContent = years.length
+    ? `${Math.min(...years)}–${Math.max(...years)}` : '—';
+
+  // overview charts
+  const genreMap = countBy(titles, 'Primary_Genre');
+  makeChart('chartGenreOverview', 'doughnut', Object.keys(genreMap), Object.values(genreMap));
+  const yearMap = countBy(titles, 'Publication_Year');
+  const sortedYears = Object.keys(yearMap).sort();
+  makeChart('chartYearOverview', 'bar', sortedYears, sortedYears.map(y => yearMap[y]), 'Titles');
+}
+
+function renderDataTable() {
+  const tbody = document.getElementById('dataTableBody');
+  document.getElementById('tableCount').textContent = titles.length;
+  tbody.innerHTML = titles.map(t => `
+    <tr>
+      <td>${t.ISBN || ''}</td>
+      <td>${t.Title || ''}</td>
+      <td>${t.Author || ''}</td>
+      <td>${t.Publication_Year || ''}</td>
+      <td>${t.Primary_Genre || ''}</td>
+      <td>${t.Age_Category || ''}</td>
+      <td>${t.Format_Medium || ''}</td>
+      <td>${t.Page_Count || ''}</td>
+      <td><span class="badge ${(t.Is_New_Title||'').toLowerCase()==='yes'?'badge-yes':'badge-no'}">${t.Is_New_Title||'—'}</span></td>
+      <td><span class="badge ${(t.Is_Translated||'').toLowerCase()==='yes'?'badge-yes':'badge-no'}">${t.Is_Translated||'—'}</span></td>
+    </tr>
+  `).join('') || '<tr><td colspan="10" class="empty-state">No titles loaded</td></tr>';
+}
+
+function renderIdentifiers() {
+  const withISBN = titles.filter(t => t.ISBN).length;
+  const withAuthor = titles.filter(t => t.Author).length;
+  const withTrans = titles.filter(t => t.Translator).length;
+  document.getElementById('idCards').innerHTML = `
+    <div class="card"><div class="card-label">With ISBN</div><div class="card-value">${withISBN}</div><div class="card-sub">${titles.length ? ((withISBN/titles.length)*100).toFixed(0) : 0}% coverage</div></div>
+    <div class="card"><div class="card-label">With Author</div><div class="card-value">${withAuthor}</div><div class="card-sub">${titles.length ? ((withAuthor/titles.length)*100).toFixed(0) : 0}% coverage</div></div>
+    <div class="card"><div class="card-label">With Translator</div><div class="card-value">${withTrans}</div><div class="card-sub">Translated works credited</div></div>
+  `;
+  const pubMap = {};
+  titles.forEach(t => {
+    const key = `${t.Publisher || 'Unknown'}||${t.Imprint || '—'}`;
+    pubMap[key] = (pubMap[key] || 0) + 1;
+  });
+  document.getElementById('pubTableBody').innerHTML = Object.entries(pubMap)
+    .sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => {
+      const [p,i] = k.split('||');
+      return `<tr><td>${p}</td><td>${i}</td><td>${v}</td></tr>`;
+    }).join('') || '<tr><td colspan="3">No data</td></tr>';
+}
+
+function renderTime() {
+  const yearMap = countBy(titles, 'Publication_Year');
+  const years = Object.keys(yearMap).sort();
+  document.getElementById('timeCards').innerHTML = years.map(y =>
+    `<div class="card"><div class="card-label">${y}</div><div class="card-value">${yearMap[y]}</div><div class="card-sub">titles</div></div>`
+  ).join('') || '<div class="card"><div class="card-label">No years</div><div class="card-value">—</div></div>';
+
+  makeChart('chartYear', 'bar', years, years.map(y => yearMap[y]), 'Titles');
+  const monthMap = countBy(titles, 'Publication_Month');
+  const months = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  makeChart('chartMonth', 'bar', monthLabels, months.map(m => monthMap[m] || 0), 'Titles');
+
+  // prefill YoY if possible
+  if (years.length >= 2) {
+    const prev = yearMap[years[years.length-2]] || 0;
+    const curr = yearMap[years[years.length-1]] || 0;
+    document.getElementById('yoyPrev').value = prev;
+    document.getElementById('yoyCurr').value = curr;
+  }
+}
+
+function calcYoY() {
+  const prev = parseFloat(document.getElementById('yoyPrev').value) || 0;
+  const curr = parseFloat(document.getElementById('yoyCurr').value) || 0;
+  if (prev === 0) {
+    document.getElementById('yoyResult').textContent = 'Cannot divide by zero';
+    return;
+  }
+  const pct = ((curr - prev) / prev * 100).toFixed(1);
+  document.getElementById('yoyResult').textContent = `${pct}% ${curr >= prev ? 'growth' : 'decline'}`;
+}
+
+function renderGenre() {
+  const genreMap = countBy(titles, 'Primary_Genre');
+  const total = titles.length || 1;
+  makeChart('chartGenre', 'doughnut', Object.keys(genreMap), Object.values(genreMap));
+  document.getElementById('genreTableBody').innerHTML = Object.entries(genreMap)
+    .sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td><td>${(v/total*100).toFixed(1)}%</td></tr>`).join('') || '<tr><td colspan="3">No data</td></tr>';
+
+  const ageMap = countBy(titles, 'Age_Category');
+  makeChart('chartAge', 'pie', Object.keys(ageMap), Object.values(ageMap));
+  document.getElementById('ageTableBody').innerHTML = Object.entries(ageMap)
+    .sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td><td>${(v/total*100).toFixed(1)}%</td></tr>`).join('') || '<tr><td colspan="3">No data</td></tr>';
+}
+
+function renderVolume() {
+  const newC = yesCount(titles, 'Is_New_Title');
+  const transC = yesCount(titles, 'Is_Translated');
+  const seriesC = titles.filter(t => (t.Series_Name || '').toString().trim()).length;
+  document.getElementById('volumeCards').innerHTML = `
+    <div class="card"><div class="card-label">New Titles</div><div class="card-value">${newC}</div><div class="card-sub">${titles.length ? (newC/titles.length*100).toFixed(0) : 0}% of total</div></div>
+    <div class="card"><div class="card-label">Translated</div><div class="card-value">${transC}</div><div class="card-sub">${titles.length ? (transC/titles.length*100).toFixed(0) : 0}% of total</div></div>
+    <div class="card"><div class="card-label">In a Series</div><div class="card-value">${seriesC}</div><div class="card-sub">Have Series_Name filled</div></div>
+    <div class="card"><div class="card-label">Standalone-ish</div><div class="card-value">${titles.length - seriesC}</div><div class="card-sub">No series name</div></div>
+  `;
+  makeChart('chartNew', 'doughnut', ['New Title', 'Other / Reprint'], [newC, titles.length - newC]);
+  makeChart('chartTrans', 'doughnut', ['Translated', 'Original Language'], [transC, titles.length - transC]);
+
+  const pages = titles.map(t => parseFloat(t.Page_Count)).filter(n => !isNaN(n) && n > 0);
+  const sum = pages.reduce((a,b)=>a+b,0);
+  const avg = pages.length ? sum / pages.length : 0;
+  const min = pages.length ? Math.min(...pages) : 0;
+  const max = pages.length ? Math.max(...pages) : 0;
+  document.getElementById('pageCards').innerHTML = `
+    <div class="card"><div class="card-label">Total Pages Published</div><div class="card-value">${sum.toLocaleString()}</div></div>
+    <div class="card"><div class="card-label">Average Pages</div><div class="card-value">${avg ? avg.toFixed(0) : '—'}</div></div>
+    <div class="card"><div class="card-label">Min / Max Pages</div><div class="card-value">${pages.length ? min + ' / ' + max : '—'}</div></div>
+  `;
+}
+
+function renderFormat() {
+  const fmtMap = countBy(titles, 'Format_Medium');
+  const bindMap = countBy(titles, 'Binding');
+  const total = titles.length || 1;
+  makeChart('chartFormat', 'pie', Object.keys(fmtMap), Object.values(fmtMap));
+  makeChart('chartBinding', 'bar', Object.keys(bindMap), Object.values(bindMap), 'Titles');
+  document.getElementById('formatTableBody').innerHTML = Object.entries(fmtMap)
+    .sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td><td>${(v/total*100).toFixed(1)}%</td></tr>`).join('') || '<tr><td colspan="3">No data</td></tr>';
+}
+
+function renderRights() {
+  const trans = titles.filter(t => (t.Is_Translated||'').toLowerCase() === 'yes');
+  document.getElementById('rightsCards').innerHTML = `
+    <div class="card"><div class="card-label">Translated Titles</div><div class="card-value">${trans.length}</div></div>
+    <div class="card"><div class="card-label">Distinct Source Languages</div><div class="card-value">${new Set(trans.map(t => t.Source_Language).filter(Boolean)).size}</div></div>
+    <div class="card"><div class="card-label">Distinct Source Countries</div><div class="card-value">${new Set(trans.map(t => t.Source_Country).filter(Boolean)).size}</div></div>
+  `;
+  const srcLang = countBy(trans, 'Source_Language');
+  makeChart('chartSourceLang', 'doughnut', Object.keys(srcLang), Object.values(srcLang));
+  const pubLang = countBy(titles, 'Publication_Language');
+  makeChart('chartPubLang', 'pie', Object.keys(pubLang), Object.values(pubLang));
+  const srcC = countBy(trans, 'Source_Country');
+  document.getElementById('sourceCountryBody').innerHTML = Object.entries(srcC)
+    .sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') || '<tr><td colspan="2">No translated titles with country data</td></tr>';
+}
+
+function renderDiversity() {
+  const authors = {};
+  titles.forEach(t => {
+    const a = (t.Author || 'Unknown').toString().trim();
+    authors[a] = (authors[a] || 0) + 1;
+  });
+  const debut = yesCount(titles, 'Is_Debut_Author');
+  const genderMap = countBy(titles.filter(t => t.Author_Gender), 'Author_Gender');
+  document.getElementById('divCards').innerHTML = `
+    <div class="card"><div class="card-label">Unique Authors</div><div class="card-value">${Object.keys(authors).length}</div></div>
+    <div class="card"><div class="card-label">Debut Author Titles</div><div class="card-value">${debut}</div></div>
+    <div class="card"><div class="card-label">With Gender Recorded</div><div class="card-value">${titles.filter(t => t.Author_Gender).length}</div></div>
+  `;
+  makeChart('chartDebut', 'doughnut', ['Debut', 'Established / Unknown'], [debut, titles.length - debut]);
+  makeChart('chartGender', 'pie', Object.keys(genderMap), Object.values(genderMap));
+  document.getElementById('authorTableBody').innerHTML = Object.entries(authors)
+    .sort((a,b) => b[1]-a[1])
+    .slice(0, 20)
+    .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') || '<tr><td colspan="2">No data</td></tr>';
+}
+
+function renderExtraCharts() {
+  const yearMap = countBy(titles, 'Publication_Year');
+  const years = Object.keys(yearMap).sort();
+  makeChart('chartYear2', 'line', years, years.map(y => yearMap[y]), 'Titles');
+  const genreMap = countBy(titles, 'Primary_Genre');
+  makeChart('chartGenre2', 'bar', Object.keys(genreMap), Object.values(genreMap), 'Titles');
+  const fmtMap = countBy(titles, 'Format_Medium');
+  makeChart('chartFormat2', 'doughnut', Object.keys(fmtMap), Object.values(fmtMap));
+  // simple combo: new & translated counts as two bars
+  makeChart('chartCombo', 'bar', ['New Titles', 'Translated Titles'], [
+    yesCount(titles, 'Is_New_Title'),
+    yesCount(titles, 'Is_Translated')
+  ], 'Count');
+}
+
+// ========== CALCULATORS ==========
+function runYoYCalc() {
+  const prev = parseFloat(document.getElementById('calcPrev').value);
+  const curr = parseFloat(document.getElementById('calcCurr').value);
+  if (isNaN(prev) || isNaN(curr) || prev === 0) {
+    document.getElementById('calcYoYOut').textContent = 'Enter valid non-zero previous value';
+    return;
+  }
+  const pct = ((curr - prev) / prev * 100).toFixed(2);
+  document.getElementById('calcYoYOut').textContent = `${pct}% (${curr >= prev ? 'growth' : 'decline'})`;
+}
+function runShareCalc() {
+  const part = parseFloat(document.getElementById('calcPart').value);
+  const whole = parseFloat(document.getElementById('calcWhole').value);
+  if (isNaN(part) || isNaN(whole) || whole === 0) {
+    document.getElementById('calcShareOut').textContent = 'Enter valid whole > 0';
+    return;
+  }
+  document.getElementById('calcShareOut').textContent = `${(part / whole * 100).toFixed(2)}%`;
+}
+function runAvgCalc() {
+  const tot = parseFloat(document.getElementById('calcTotalPages').value);
+  const n = parseFloat(document.getElementById('calcNumTitles').value);
+  if (isNaN(tot) || isNaN(n) || n === 0) {
+    document.getElementById('calcAvgOut').textContent = 'Enter valid numbers';
+    return;
+  }
+  document.getElementById('calcAvgOut').textContent = `${(tot / n).toFixed(1)} pages`;
+}
+function runLeadCalc() {
+  const a = document.getElementById('calcAcq').value;
+  const p = document.getElementById('calcPub').value;
+  if (!a || !p) {
+    document.getElementById('calcLeadOut').textContent = 'Select both dates';
+    return;
+  }
+  const days = Math.round((new Date(p) - new Date(a)) / 86400000);
+  document.getElementById('calcLeadOut').textContent = `${days} days (${(days/30.44).toFixed(1)} months)`;
+}
+function autoFillCalcs() {
+  if (!titles.length) { showToast('No data to auto-fill'); return; }
+  const yearMap = countBy(titles, 'Publication_Year');
+  const years = Object.keys(yearMap).sort();
+  if (years.length >= 2) {
+    document.getElementById('calcPrev').value = yearMap[years[years.length-2]];
+    document.getElementById('calcCurr').value = yearMap[years[years.length-1]];
+  }
+  document.getElementById('calcPart').value = yesCount(titles, 'Is_Translated');
+  document.getElementById('calcWhole').value = titles.length;
+  const pages = titles.map(t => parseFloat(t.Page_Count)).filter(n => !isNaN(n) && n > 0);
+  document.getElementById('calcTotalPages').value = pages.reduce((a,b)=>a+b,0);
+  document.getElementById('calcNumTitles').value = pages.length;
+  showToast('Calculators filled from current data');
+}
+
+// ========== IMPORT / EXPORT / SAMPLE ==========
+document.getElementById('excelInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      // Prefer "Titles" sheet, else first sheet
+      const sheetName = workbook.SheetNames.includes('Titles') ? 'Titles' : workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      if (!json.length) {
+        showToast('No data rows found in the sheet');
+        return;
+      }
+      // Normalize keys (trim)
+      titles = json.map(row => {
+        const o = {};
+        Object.keys(row).forEach(k => { o[k.trim()] = row[k]; });
+        return o;
+      });
+      recalculateAll();
+      showToast(`Imported ${titles.length} titles from “${sheetName}”`);
+    } catch (err) {
+      console.error(err);
+      showToast('Import failed: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+});
+
+function clearData() {
+  if (!confirm('Clear all loaded titles?')) return;
+  titles = [];
+  recalculateAll();
+  showToast('Data cleared');
+}
+
+function exportCurrentData() {
+  const blob = new Blob([JSON.stringify(titles, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'seermai_catalogue_data.json';
+  a.click();
+  showToast('JSON exported');
+}
+
+function addSampleData() {
+  titles = [
+    {ISBN:"978-0-123456-78-9",Title:"The Silent Archive",Author:"Elena Voss",Publication_Year:2024,Publication_Month:3,Primary_Genre:"Fiction",Sub_Genre:"Literary Fiction",Age_Category:"Adult",Work_Type:"Novel",Binding:"Hardcover",Page_Count:342,Format_Medium:"Print",Is_New_Title:"Yes",Is_Translated:"No",Publisher:"Seermai Press",Imprint:"Main Imprint",Author_Gender:"Female",Author_Region:"Europe",Is_Debut_Author:"No"},
+    {ISBN:"978-0-123456-79-6",Title:"Shadows of Kyoto",Author:"Haruki Tanaka",Translator:"Maya Chen",Publication_Year:2024,Publication_Month:6,Primary_Genre:"Fiction",Sub_Genre:"Historical Fiction",Age_Category:"Adult",Work_Type:"Novel",Binding:"Paperback",Page_Count:278,Format_Medium:"Both",Is_New_Title:"Yes",Is_Translated:"Yes",Source_Language:"Japanese",Source_Country:"Japan",Source_Publisher:"Tokyo House",Publisher:"Seermai Press",Imprint:"World Literature",Author_Gender:"Male",Author_Region:"Asia",Is_Debut_Author:"Yes",Original_Language:"Japanese",Publication_Language:"English"},
+    {ISBN:"978-0-123456-80-2",Title:"Mindful Leadership",Author:"Dr. Priya Sharma",Publication_Year:2023,Publication_Month:11,Primary_Genre:"Non-Fiction",Sub_Genre:"Self-Help / Business",Age_Category:"Adult",Work_Type:"Monograph",Binding:"Paperback",Page_Count:215,Format_Medium:"Print",Is_New_Title:"Yes",Is_Translated:"No",Publisher:"Seermai Press",Imprint:"Business",Author_Gender:"Female",Author_Region:"South Asia",Is_Debut_Author:"No"},
+    {ISBN:"978-0-123456-81-9",Title:"Starlight Stories",Author:"Lila Brooks",Publication_Year:2025,Publication_Month:2,Primary_Genre:"Fiction",Sub_Genre:"Children's Fantasy",Age_Category:"Children",Work_Type:"Short Story Collection",Binding:"Hardcover",Page_Count:128,Format_Medium:"Print",Is_New_Title:"Yes",Is_Translated:"No",Series_Name:"Starlight Series",Publisher:"Seermai Press",Imprint:"Children's",Author_Gender:"Female",Author_Region:"North America",Is_Debut_Author:"Yes"},
+    {ISBN:"978-0-123456-82-6",Title:"The Art of Translation",Author:"Sophie Moreau",Translator:"James Reed",Publication_Year:2024,Publication_Month:9,Primary_Genre:"Non-Fiction",Sub_Genre:"Literary Criticism",Age_Category:"Adult",Work_Type:"Essay Collection",Binding:"Paperback",Page_Count:196,Format_Medium:"Both",Is_New_Title:"Yes",Is_Translated:"Yes",Source_Language:"French",Source_Country:"France",Source_Publisher:"Éditions Lumière",Publisher:"Seermai Press",Imprint:"Academic",Author_Gender:"Female",Author_Region:"Europe",Is_Debut_Author:"No",Original_Language:"French",Publication_Language:"English"},
+    {ISBN:"978-0-123456-83-3",Title:"Quiet Revolutions",Author:"Elena Voss",Publication_Year:2025,Publication_Month:1,Primary_Genre:"Fiction",Sub_Genre:"Literary Fiction",Age_Category:"Adult",Work_Type:"Novel",Binding:"Hardcover",Page_Count:310,Format_Medium:"Print",Is_New_Title:"Yes",Is_Translated:"No",Publisher:"Seermai Press",Imprint:"Main Imprint",Author_Gender:"Female",Author_Region:"Europe",Is_Debut_Author:"No"},
+    {ISBN:"978-0-123456-84-0",Title:"Coding for Creatives",Author:"Marcus Lee",Publication_Year:2023,Publication_Month:5,Primary_Genre:"Non-Fiction",Sub_Genre:"Technology",Age_Category:"Adult",Work_Type:"Textbook",Binding:"Paperback",Page_Count:402,Format_Medium:"Both",Is_New_Title:"Yes",Is_Translated:"No",Publisher:"Seermai Press",Imprint:"Academic",Author_Gender:"Male",Author_Region:"North America",Is_Debut_Author:"Yes"},
+    {ISBN:"978-0-123456-85-7",Title:"River Songs",Author:"Amina Diallo",Translator:"Sam Okonkwo",Publication_Year:2024,Publication_Month:4,Primary_Genre:"Poetry",Sub_Genre:"Contemporary Poetry",Age_Category:"Adult",Work_Type:"Other",Binding:"Paperback",Page_Count:96,Format_Medium:"Print",Is_New_Title:"Yes",Is_Translated:"Yes",Source_Language:"French",Source_Country:"Senegal",Publisher:"Seermai Press",Imprint:"World Literature",Author_Gender:"Female",Author_Region:"Africa",Is_Debut_Author:"Yes",Publication_Language:"English"}
+  ];
+  recalculateAll();
+  showToast('Sample data loaded (8 titles)');
+}
+
+// Init
+recalculateAll();
+</script>
+</body>
+</html>
